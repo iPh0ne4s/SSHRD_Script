@@ -21,6 +21,5 @@
   - Directly run this command after device entered DFU mode
   - A7 iOS 7 devices will be stuck in recovery loop after booting iOS 12 ramdisk, you may boot an iOS 8 ramdisk using [Legacy iOS Kit](https://github.com/LukeZGD/Legacy-iOS-Kit) to fix this, which is not supported by SSHRD_Script
 ## Notes
-- MobileGestalt cache became protected (moved to /var/containers/shared/system) in one of the late iOS 10 versions(10.0.1 has it in good old cache folder). Since I don’t know the exact version yet, iOS 10 support is currently on hold.
 - If there are permission denied, terminated or operation not permitted errors with sshrd.sh, try running sshrd.sh with sudo, especially on macOS
 - On 10.2.1 and lower devices, use `/sbin/mount_hfs /dev/disk0s1s1 /mnt1` to mount system partition then load sep `/usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4`, and `/sbin/mount_hfs /dev/disk0s1s2 /mnt2` to mount data partition. /mnt2 will be mounted as read/write if device's SEP is compatible with ramdisk version
