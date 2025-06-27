@@ -14,6 +14,7 @@ cd into SSHRD_Script directory. Run `chmod +x sshrd.sh` if running the script fo
 3. Run `./sshrd.sh ssh` to SSH into device, if the terminal says "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!", run `rm -rf ~/.ssh` and try again. Here are some other commands:
   - Reboot device: `./sshrd.sh reboot`
   - Erase device: `./sshrd.sh reset`
+    - Run this one before `./sshrd.sh boot`
   - Dump onboard blobs: `./sshrd.sh dump-blobs`
   - Remove temporary files: `./sshrd.sh clean`
   - For extra commands see below

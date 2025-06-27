@@ -49,13 +49,13 @@ elif [ "$1" = 'dump-blobs' ]; then
         device=rdisk1
     fi
     "$oscheck"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "cat /dev/$device" | dd of=dump.raw bs=256 count=$((0x4000))
-    "$oscheck"/img4tool --convert -s dumped.shsh dump.raw
+    "$oscheck"/img4tool --convert -s dumped.shsh2 dump.raw
     killall iproxy 2>/dev/null | true
     if [ "$oscheck" = 'Linux' ]; then
         sudo killall usbmuxd 2>/dev/null | true
     fi
     rm dump.raw
-    echo "[*] Onboard blobs should have dumped to the dumped.shsh file"
+    echo "[*] Onboard blobs should have dumped to the dumped.shsh2 file"
     exit
 elif [ "$1" = 'reboot' ]; then
     if [ "$oscheck" = 'Linux' ]; then
@@ -76,7 +76,7 @@ elif [ "$1" = 'reboot' ]; then
 elif [ "$1" = 'ssh' ]; then
     echo "[*] On iOS 10.3+, run mount_filesystems to mount filesystems, on 10.2.1 and lower run the following command:"
     echo "    /sbin/mount_hfs /dev/disk0s1s1 /mnt1 && /usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 && /sbin/mount_hfs /dev/disk0s1s2 /mnt2"
-    echo "[*] Rename system snapshot (do this before modifying system files on 11.3+, mount /mnt1 first):"
+    echo "[*] Rename system snapshot (if first time modifying /mnt1 on 11.3+, mount /mnt1 and run this):"
     echo '    snaputil -n $(snaputil -l /mnt1) orig-fs /mnt1'
     echo "[*] Erase device without updating:"
     echo "    /usr/sbin/nvram oblit-inprogress=5"
@@ -117,7 +117,7 @@ elif [ "$1" = '--backup-activation' ]; then
     elif [ -s activation_records/$serial_number/*_record.plist ] && [ -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] && [ ! -s activation_records/$serial_number/IC-Info.sisv ]; then
     echo "[*] Failed to save IC-Info.sisv, delete current /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot to lock screen, enter DFU mode, boot SSH ramdisk and try again"
     else
-    echo "[*] Failed to save activation files, select a ramdisk version that is identical or close enough to device's version and try again"
+    echo "[*] Failed to save activation files, select a ramdisk version that is identical or close enough to device version and try again"
     fi
     killall iproxy 2>/dev/null | true
     if [ "$oscheck" = 'Linux' ]; then
@@ -151,7 +151,7 @@ elif [ "$1" = '--restore-activation' ]; then
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Downloads/Activation /mnt2/mobile/Media"
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown -R mobile:mobile /mnt2/mobile/Media/Activation"
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod -R 755 /mnt2/mobile/Media/Activation"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p .activation_records"
+    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Activation/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
@@ -183,7 +183,7 @@ elif [ "$1" = '--backup-activation-hfs' ]; then
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 || true"
     "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt1/System/Library/CoreServices/SystemVersion.plist . || true
     if [ ! -e SystemVersion.plist ]; then
-        echo "[*] Failed to mount filesystems as HFS+, probably iOS 10.3+, use --backup-activation instead"
+        echo "[*] Failed to mount filesystems as HFS+, probably iOS 10.3+, run ./sshrd.sh --backup-activation"
         killall iproxy 2>/dev/null | true
         if [ "$oscheck" = 'Linux' ]; then
             sudo killall usbmuxd 2>/dev/null | true
@@ -193,6 +193,7 @@ elif [ "$1" = '--backup-activation-hfs' ]; then
     device_version=$(grep -A1 '<key>ProductVersion</key>' SystemVersion.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
     device_major=$(echo "$device_version" | cut -d. -f1)
     device_minor=$(echo "$device_version" | cut -d. -f2)
+    echo "[*] Device Version: "$device_version""; sleep 3
     rm SystemVersion.plist
     if [ "$device_major" -eq 10 ] && [ "$device_minor" -lt 3 ]; then
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 || true"
@@ -205,7 +206,7 @@ elif [ "$1" = '--backup-activation-hfs' ]; then
         elif [ -s activation_records/$serial_number/*_record.plist ] && [ -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] && [ ! -s activation_records/$serial_number/IC-Info.sisv ]; then
         echo "[*] Failed to save IC-Info.sisv, delete current /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot to lock screen, enter DFU mode, boot SSH ramdisk and try again"
         else
-        echo "[*] Failed to save activation files, select a ramdisk version that is identical or close enough to device's version and try again"
+        echo "[*] Failed to save activation files, select a ramdisk version that is identical or close enough to device version and try again"
         fi
         killall iproxy 2>/dev/null | true
         if [ "$oscheck" = 'Linux' ]; then
@@ -265,7 +266,7 @@ elif [ "$1" = '--restore-activation-hfs' ]; then
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 || true"
     "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt1/System/Library/CoreServices/SystemVersion.plist . || true
     if [ ! -e SystemVersion.plist ]; then
-        echo "[*] Failed to mount filesystems as HFS+, probably iOS 10.3+, use --restore-activation instead"
+        echo "[*] Failed to mount filesystems as HFS+, probably iOS 10.3+, run ./sshrd.sh --restore-activation"
         killall iproxy 2>/dev/null | true
         if [ "$oscheck" = 'Linux' ]; then
             sudo killall usbmuxd 2>/dev/null | true
@@ -275,6 +276,7 @@ elif [ "$1" = '--restore-activation-hfs' ]; then
     device_version=$(grep -A1 '<key>ProductVersion</key>' SystemVersion.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
     device_major=$(echo "$device_version" | cut -d. -f1)
     device_minor=$(echo "$device_version" | cut -d. -f2)
+    echo "[*] Device Version: "$device_version""; sleep 3
     rm SystemVersion.plist
     if [ "$device_major" -eq 10 ] && [ "$device_minor" -lt 3 ]; then
         if [ ! -e activation_records/$serial_number/*_record.plist ]; then
@@ -295,7 +297,7 @@ elif [ "$1" = '--restore-activation-hfs' ]; then
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Downloads/Activation /mnt2/mobile/Media"
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown -R mobile:mobile /mnt2/mobile/Media/Activation"
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod -R 755 /mnt2/mobile/Media/Activation"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p .activation_records"
+        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Activation/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
@@ -316,7 +318,7 @@ elif [ "$1" = '--restore-activation-hfs' ]; then
 # Currently not working, on 9.3.x activation files won't be recognized
     elif [ "$device_major" -eq 9 ] && [ "$device_minor" -eq 3 ]; then
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p .activation_records"
+        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
         "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
@@ -492,15 +494,7 @@ if [ "$1" = 'reset' ]; then
         exit
     fi
 
-    if [ "$check" = '0x8960' ]; then
-        if [ "$oscheck" = 'Linux' ]; then
-            "$oscheck"/ipwnder > /dev/null
-        else
-            "$oscheck"/ipwnder_lite > /dev/null
-        fi
-    else
-        "$oscheck"/gaster pwn > /dev/null
-    fi
+    "$oscheck"/gaster pwn > /dev/null
     "$oscheck"/gaster reset > /dev/null
     "$oscheck"/irecovery -f sshramdisk/iBSS.img4
     sleep 2
@@ -539,15 +533,7 @@ if [ "$1" = 'boot' ]; then
     minor=${minor:-0}
     patch=${patch:-0}
     
-    if [ "$check" = '0x8960' ]; then
-        if [ "$oscheck" = 'Linux' ]; then
-            "$oscheck"/ipwnder > /dev/null
-        else
-            "$oscheck"/ipwnder_lite > /dev/null
-        fi
-    else
-        "$oscheck"/gaster pwn > /dev/null
-    fi
+    "$oscheck"/gaster pwn > /dev/null
     "$oscheck"/gaster reset > /dev/null
     "$oscheck"/irecovery -f sshramdisk/iBSS.img4
     sleep 5
