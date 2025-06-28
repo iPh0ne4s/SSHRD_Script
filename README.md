@@ -34,6 +34,8 @@ cd into SSHRD_Script directory. Run `chmod +x sshrd.sh` if running the script fo
 - iOS 7-8 brute force (partially supported)
   - Run `./sshrd.sh --brute-force` to get unlimited passcode attempts on passcode locked and disabled devices, iOS 7-8 only
   - A7 iOS 7 devices will be stuck in recovery loop after booting iOS 12 ramdisk, you may boot an iOS 8 ramdisk using [Legacy iOS Kit](https://github.com/LukeZGD/Legacy-iOS-Kit) to fix this, which is not supported by SSHRD_Script
+- Partial A7 support on Linux
+  - A7 devices still need to be manually placed into pwnDFU using [ipwnder_lite](https://github.com/LukeZGD/ipwnder_lite), pwning with gaster or ipwndfu on macOS may not work. [Usage](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/Pwning-Using-Another-iOS-Device)
 ## Notes
 - If there are permission denied, terminated or operation not permitted errors with sshrd.sh, try running sshrd.sh with sudo, especially on macOS
 - On 10.2.1 and lower devices, run `/sbin/mount_hfs /dev/disk0s1s1 /mnt1 && /usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 && /sbin/mount_hfs /dev/disk0s1s2 /mnt2` to mount filesystems. /mnt2 will be mounted as read/write only if device's SEP is compatible with ramdisk version, currently supports 10.0-10.2.1

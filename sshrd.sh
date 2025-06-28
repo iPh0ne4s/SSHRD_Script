@@ -439,8 +439,7 @@ elif [ "$1" = '--brute-force' ]; then
         sleep .1
     fi
     "$oscheck"/iproxy 2222 22 &>/dev/null &
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2"
+    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 && /sbin/mount_hfs /dev/disk0s1s2 /mnt2"
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cp -f /com.apple.springboard.plist /mnt1"
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Library/Preferences/com.apple.springboard.plist /mnt2/mobile/Library/Preferences/com.apple.springboard.plist.bak"
     "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "ln -s /com.apple.springboard.plist /mnt2/mobile/Library/Preferences/com.apple.springboard.plist"
@@ -474,7 +473,24 @@ echo "[*] Getting device info and pwning... this may take a second"
 check=$("$oscheck"/irecovery -q | grep CPID | sed 's/CPID: //')
 replace=$("$oscheck"/irecovery -q | grep MODEL | sed 's/MODEL: //')
 deviceid=$("$oscheck"/irecovery -q | grep PRODUCT | sed 's/PRODUCT: //')
+if [ "$check" = '0x8960' ] && [ "$oscheck" = 'Linux' ]; then
+    if [ "$major" -eq 10 ] && [ "$minor" -eq 0 ]; then
+        a7_ramdisk_version='10.0.1'
+    elif [ "$major" -eq 10 ] && [ "$minor" -ge 1 ]; then
+        a7_ramdisk_version='10.3'
+    elif [ "$major" -eq 11 ] && [ "$minor" -lt 3 ]; then
+        a7_ramdisk_version='11.0'
+    else
+        a7_ramdisk_version='12.0'
+    fi
+    ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$oscheck"/jq '.firmwares | .[] | select(.version=="'$a7_ramdisk_version'")' | "$oscheck"/jq -s '.[0] | .url' --raw-output)
+    version="$a7_ramdisk_version"
+    major=$(echo "$version" | cut -d. -f1)
+    minor=$(echo "$version" | cut -d. -f2)
+    patch=$(echo "$version" | cut -d. -f3)
+else
 ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$oscheck"/jq '.firmwares | .[] | select(.version=="'$1'")' | "$oscheck"/jq -s '.[0] | .url' --raw-output)
+fi
 
 if [ -e work ]; then
     rm -rf work
@@ -494,7 +510,11 @@ if [ "$1" = 'reset' ]; then
         exit
     fi
 
-    "$oscheck"/gaster pwn > /dev/null
+    if [ "$check" = '0x8960' ] && [ "$oscheck" = 'Linux' ]; then
+        echo "[*] WARNING: Linux and A7 device detected, the device must be manually placed into pwnDFU using ipwnder_lite, otherwise the process will fail"; sleep 5
+    else
+        "$oscheck"/gaster pwn > /dev/null
+    fi
     "$oscheck"/gaster reset > /dev/null
     "$oscheck"/irecovery -f sshramdisk/iBSS.img4
     sleep 2
@@ -533,7 +553,11 @@ if [ "$1" = 'boot' ]; then
     minor=${minor:-0}
     patch=${patch:-0}
     
-    "$oscheck"/gaster pwn > /dev/null
+    if [ "$check" = '0x8960' ] && [ "$oscheck" = 'Linux' ]; then
+        echo "[*] WARNING: Linux and A7 device detected, the device must be manually placed into pwnDFU using ipwnder_lite, otherwise the process will fail"; sleep 5
+    else
+        "$oscheck"/gaster pwn > /dev/null
+    fi
     "$oscheck"/gaster reset > /dev/null
     "$oscheck"/irecovery -f sshramdisk/iBSS.img4
     sleep 5
@@ -572,7 +596,11 @@ if [ ! -e work ]; then
     mkdir work
 fi
 
-"$oscheck"/gaster pwn > /dev/null
+if [ "$check" = '0x8960' ] && [ "$oscheck" = 'Linux' ]; then
+    echo "[*] WARNING: Linux and A7 device detected, assume device version is "$1", use "$a7_ramdisk_version" ramdisk"; sleep 3
+else
+    "$oscheck"/gaster pwn > /dev/null
+fi
 "$oscheck"/img4tool -e -s other/shsh/"${check}".shsh -m work/IM4M
 
 cd work
@@ -607,10 +635,14 @@ cd ..
 if [ "$major" -gt 18 ] || [ "$major" -eq 18 ]; then
 "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBSS.dec
 "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBEC.dec
+elif [ "$check" = '0x8960' ] && [ "$oscheck" = 'Linux' ]; then
+    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBSS.dec -k $(cat other/Linux_A7/"$deviceid"_"$a7_ramdisk_version"_iBSS)
+    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBEC.dec -k $(cat other/Linux_A7/"$deviceid"_"$a7_ramdisk_version"_iBEC)
 else
 "$oscheck"/gaster decrypt work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" work/iBSS.dec
 "$oscheck"/gaster decrypt work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" work/iBEC.dec
 fi
+
 if [ "$major" -eq 10 ] && [ "$minor" -lt 3 ] || [ "$major" -lt 10 ]; then
     echo "iOS lower than 10.3 detected, using kairos for bootchain"
     "$oscheck"/kairos work/iBSS.dec work/iBSS.patched
@@ -761,4 +793,8 @@ rm -rf work 12rd
 
 echo ""
 echo "[*] Finished! Please use ./sshrd.sh boot to boot your device"
-echo $1 > sshramdisk/version.txt
+if [ "$check" = '0x8960' ] && [ "$oscheck" = 'Linux' ]; then
+    echo $a7_ramdisk_version > sshramdisk/version.txt
+else
+    echo $1 > sshramdisk/version.txt
+fi
