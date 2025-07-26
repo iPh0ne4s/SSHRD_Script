@@ -18,6 +18,7 @@ cd into SSHRD_Script directory. Run `chmod +x sshrd.sh` if running the script fo
     - Run this one before `./sshrd.sh boot`
   - Dump onboard blobs: `./sshrd.sh dump-blobs`
   - Remove temporary files: `./sshrd.sh clean`
+  - To exit recovery mode, run `./sshrd.sh --exit-recovery`
   - For extra commands see below
 ## Extra Features
 ### In this part, all the commands starting with ./sshrd.sh are designed to be executed after booting ramdisk, i.e., after creating ramdisk and running `./sshrd.sh boot`, before `./sshrd.sh ssh`
