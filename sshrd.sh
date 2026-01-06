@@ -547,22 +547,22 @@ elif [ "$1" = 'reset' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
-elif [ "$oscheck" = 'Darwin' ]; then
-    if ! (system_profiler SPUSBDataType 2> /dev/null | grep ' Apple Mobile Device (DFU Mode)' >> /dev/null); then
-        echo_text "[*] Waiting for device in DFU mode"
-    fi
-    
-    while ! (system_profiler SPUSBDataType 2> /dev/null | grep ' Apple Mobile Device (DFU Mode)' >> /dev/null); do
-        sleep 1
-    done
 else
-    if ! (lsusb 2> /dev/null | grep ' Apple, Inc. Mobile Device (DFU Mode)' >> /dev/null); then
-        echo_text "[*] Waiting for device in DFU mode"
+    if [ "$oscheck" = 'Darwin' ]; then
+        check_cmd="ioreg -p IOUSB"
+        check_str="Apple Mobile Device (DFU Mode)"
+    else
+        check_cmd="lsusb"
+        check_str="Apple, Inc. Mobile Device (DFU Mode)"
     fi
-    
-    while ! (lsusb 2> /dev/null | grep ' Apple, Inc. Mobile Device (DFU Mode)' >> /dev/null); do
-        sleep 1
-    done
+
+    if ! $check_cmd 2>/dev/null | grep -q "$check_str"; then
+        echo_text "[*] Waiting for device in DFU mode"
+        
+        until $check_cmd 2>/dev/null | grep -q "$check_str"; do
+            sleep 1
+        done
+    fi
 fi
 
 echo_text "[*] Getting device info and pwning... this may take a second"
@@ -692,7 +692,7 @@ if ([ "$major" -eq 10 ] && [ "$minor" -lt 3 ] || [ "$major" -lt 10 ]) || ([ "$ma
 else
     "$oscheck"/iBoot64Patcher work/iBSS.dec work/iBSS.patched
     "$oscheck"/img4 -i work/iBSS.patched -o sshramdisk/iBSS.img4 -M work/IM4M -A -T ibss
-    "$oscheck"/iBoot64Patcher work/iBEC.dec work/iBEC.patched -b "rd=md0 debug=0x2014e -v wdt=-1 `if [ -z "$2" ]; then :; else echo "$2=$3"; fi` `if [ "$check" = '0x8960' ] || [ "$check" = '0x7000' ] || [ "$check" = '0x7001' ]; then echo "nand-enable-reformat=1 -restore"; fi`" -n
+    "$oscheck"/iBoot64Patcher work/iBEC.dec work/iBEC.patched -b "rd=md0 debug=0x2014e -v wdt=-1 `if [ -z "$2" ]; then :; else echo "$2=$3"; fi` `if [ "$check" = '0x8960' ] || [ "$check" = '0x7000' ] || [ "$check" = '0x7001' ]; then echo "nand-enable-reformat=1 -restore"; fi`"
     "$oscheck"/img4 -i work/iBEC.patched -o sshramdisk/iBEC.img4 -M work/IM4M -A -T ibec
 fi   
 
