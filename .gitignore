@@ -1,8 +1,9 @@
 .DS_Store
 work
 sshramdisk
-.irecovery
-logs
 activation_records
 sshtars/*.tar
 12rd
+*.gz
+*.shsh2
+*.plist

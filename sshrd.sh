@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 set -e
-oscheck=$(uname)
+cd "$(dirname "$0")"
 
 version="$1"
 
@@ -32,9 +32,9 @@ echo_error() {
 
 ERR_HANDLER () {
     [ $? -eq 0 ] && exit
-    echo_error "[-] An error occurred"
+    echo_error "[ERROR] An error occurred"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
 }
@@ -50,65 +50,65 @@ if [ -z "$1" ]; then
     exit
 fi
 
-if [ ! -e sshtars/ssh.tar ] && [ "$oscheck" = 'Linux' ]; then
+if [ ! -e sshtars/ssh.tar ] && [ "$(uname)" = 'Linux' ]; then
     gzip -d -k sshtars/ssh.tar.gz
     gzip -d -k sshtars/t2ssh.tar.gz
     gzip -d -k sshtars/atvssh.tar.gz
     gzip -d -k sshtars/iram.tar.gz
 fi
 
-chmod +x "$oscheck"/*
+chmod +x "$(uname)"/*
 
 if [ "$1" = 'clean' ]; then
     rm -rf sshramdisk work 12rd sshtars/*.tar
     echo_text "[*] Removed current SSH ramdisk"
     exit
 elif [ "$1" = 'dump-blobs' ]; then
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    version=$("$oscheck"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "sw_vers -productVersion")
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    version=$("$(uname)"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "sw_vers -productVersion")
     version=${version%%.*}
     if [ "$version" -ge 16 ]; then
         device=rdisk2
+        echo_text "[*] If your device is on 16.0+, it is recommended to use Legacy iOS Kit to dump fully useful blobs, go here for more details: https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/Saving-onboard-SHSH-blobs-of-current-iOS-version"; sleep 3
     else
         device=rdisk1
     fi
-    "$oscheck"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "cat /dev/$device" | dd of=dump.raw bs=256 count=$((0x4000))
-    "$oscheck"/img4tool --convert -s "$(date '+%Y-%m-%d_%H-%M-%S')".shsh2 dump.raw
+    "$(uname)"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "cat /dev/$device" | dd of=dump.raw bs=256 count=$((0x4000))
+    "$(uname)"/img4tool --convert -s "$(date '+%Y-%m-%d_%H-%M-%S')".shsh2 dump.raw
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     rm -f dump.raw
     echo_text "[*] Onboard blobs should be dumped to "$(date '+%Y-%m-%d_%H-%M-%S')".shsh2"
-    echo_text "[*] If your device is on 16.0+, it is recommended to use Legacy iOS Kit to dump fully useful blobs, go here for more details: https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/Saving-onboard-SHSH-blobs-of-current-iOS-version"
     exit
 elif [ "$1" = 'reboot' ]; then
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    "$oscheck"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "/sbin/reboot"
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    "$(uname)"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "/sbin/reboot"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     echo_text "[*] Device should now reboot"
     exit
 elif [ "$1" = 'ssh' ]; then
-    echo_text "[*] For accessing data, note the following:"
+    echo_text "[*] For accessing device with FileZilla, note the following:"
     echo_code "    Host: sftp://127.0.0.1   User: root   Password: alpine   Port: 2222"
-    echo_text "[*] Mount filesystems:"
+    echo_text "[*] Mount filesystems (make sure ramdisk version is correct):"
     echo_code "10.3 and above: /usr/bin/mount_filesystems"
     echo_code "10.0-10.2.1: mount_hfs /dev/disk0s1s1 /mnt1 && /usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 && mount_hfs /dev/disk0s1s2 /mnt2"
     echo_code "7.0-9.3.5: mount_hfs /dev/disk0s1s1 /mnt1 && mount_hfs /dev/disk0s1s2 /mnt2"
@@ -121,7 +121,7 @@ elif [ "$1" = 'ssh' ]; then
     echo_text "[*] Remove Setup.app (up to 13.2.3 or 12.4.4; on 10.0+ the device must be erased afterwards, on 11.3+ also rename system snapshot):"
     echo_code "    rm -rf /mnt1/Applications/Setup.app"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
@@ -130,429 +130,676 @@ elif [ "$1" = 'ssh' ]; then
     fi
     if [ -e sshramdisk/device_port_44 ]; then
         echo_text "[*] If stuck here, unplug and replug device, run ./sshrd.sh ssh again"
-        "$oscheck"/iproxy 2222 44 > /dev/null 2>&1 &
+        "$(uname)"/iproxy 2222 44 > /dev/null 2>&1 &
     else
-        "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
+        "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
     fi
-    "$oscheck"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost || true
+    "$(uname)"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost || true
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--backup-activation' ]; then
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    serial_number=$("$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
     mkdir -p activation_records/$serial_number
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
-    "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no "root@127.0.0.1:/mnt2/containers/Data/System/*/Library/activation_records/activation_record.plist" activation_records/$serial_number || "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no "root@127.0.0.1:/mnt2/containers/Data/System/*/Library/activation_records/pod_record.plist" activation_records/$serial_number || true
-    "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist activation_records/$serial_number || true
-    "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv activation_records/$serial_number || true
-    if [ -s activation_records/$serial_number/*_record.plist ] && [ -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] && [ -s activation_records/$serial_number/IC-Info.sisv ]; then
-    echo_text "[*] Activation files saved to activation_records/$serial_number"
-    elif [ -s activation_records/$serial_number/*_record.plist ] && [ -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] && [ ! -s activation_records/$serial_number/IC-Info.sisv ]; then
-    echo_error "[-] ERROR: Failed to save IC-Info.sisv, delete current /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot to lock screen, enter DFU mode, boot SSH ramdisk and try again"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
+    if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"; then
+        "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no "root@127.0.0.1:/mnt2/containers/Data/System/*/Library/activation_records/*_record.plist" activation_records/$serial_number > /dev/null 2>&1 || true    # Generally activation_record.plist, sometimes pod_record.plist
     else
-    echo_error "[-] ERROR: Failed to save activation files, select a ramdisk version that is identical or close enough to device version and try again"
+        echo_error "[ERROR] activation_record.plist does not exist on device"
     fi
+    if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"; then
+        "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist activation_records/$serial_number || true
+    else
+        echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist does not exist on device"
+    fi
+    if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+        "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv activation_records/$serial_number || true
+        if [ ! -s activation_records/$serial_number/IC-Info.sisv ]; then
+            echo_error "[ERROR] IC-Info.sisv is currently undownloadable, delete /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot to lock screen, this will generate a downloadable IC-Info.sisv, boot SSH ramdisk and try again"
+        else
+            :
+        fi
+    else
+        echo_error "[ERROR] IC-Info.sisv does not exist on device"
+    fi
+    if [ -s activation_records/$serial_number/*_record.plist ] && [ -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] && [ -s activation_records/$serial_number/IC-Info.sisv ]; then
+        echo_text "[*] Activation files saved to activation_records/$serial_number"
+    else
+        echo_error "[ERROR] Failed to save one or more activation files, if caused by undownloadable IC-Info.sisv, follow the instruction above, otherwise make sure device is not bypassed before"
+    fi
+    
+    # Obtain previous phone number from com.apple.commcenter.plist, requires plistutil installed on Linux
+    "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/wireless/Library/Preferences/com.apple.commcenter.plist . > /dev/null 2>&1 || true
+    if [ "$(uname)" = 'Darwin' ]; then
+        /usr/bin/plutil -convert xml1 com.apple.commcenter.plist > /dev/null 2>&1
+    else
+        plistutil -i com.apple.commcenter.plist -o com.apple.commcenter.plist > /dev/null 2>&1
+    fi
+    phone_number=$(grep -A1 '<key>PhoneNumber</key>' com.apple.commcenter.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
+    rm -f com.apple.commcenter.plist
+    if [ -n "$phone_number" ]; then
+        echo_text "[*] Phone Number: "+$phone_number""
+    fi
+    
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--restore-activation' ]; then
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    serial_number=$("$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
-    if [ ! -s activation_records/$serial_number/*_record.plist ]; then
-        echo_error "[-] ERROR: Activation files not found"
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if [ ! -e activation_records/$serial_number ]; then
+        echo_error "[ERROR] Activation files not found"
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     fi
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "rm -rf /mnt2/mobile/Media/Downloads/Activation /mnt2/mobile/Media/Activation"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Media/Downloads/Activation"
-    "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/activation_record.plist root@127.0.0.1:/mnt2/mobile/Media/Downloads/Activation || "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/pod_record.plist root@127.0.0.1:/mnt2/mobile/Media/Downloads/Activation
-    "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist root@127.0.0.1:/mnt2/mobile/Media/Downloads/Activation
-    "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/IC-Info.sisv root@127.0.0.1:/mnt2/mobile/Media/Downloads/Activation
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Downloads/Activation /mnt2/mobile/Media"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown -R mobile:mobile /mnt2/mobile/Media/Activation"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod -R 755 /mnt2/mobile/Media/Activation"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Activation/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Activation/com.apple.commcenter.device_specific_nobackup.plist /mnt2/wireless/Library/Preferences"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 600 /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown _wireless:_wireless /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Activation/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "rm -rf /mnt2/mobile/Media/Activation"
-    echo_text "[*] Activation files restored to device"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
+    if [ ! -s activation_records/$serial_number/*_record.plist ]; then
+        echo_error "[ERROR] activation_record.plist not found"
+    else
+        "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/*_record.plist root@127.0.0.1:/mnt2/tmp
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
+    fi
+    if [ ! -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ]; then
+        echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist not found"
+    else
+        "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist root@127.0.0.1:/mnt2/tmp
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/com.apple.commcenter.device_specific_nobackup.plist /mnt2/wireless/Library/Preferences"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 600 /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown _wireless:_wireless /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+    fi
+    if [ ! -s activation_records/$serial_number/IC-Info.sisv ]; then
+        echo_error "[ERROR] IC-Info.sisv not found"
+    else
+        "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/IC-Info.sisv root@127.0.0.1:/mnt2/tmp
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+    fi
+    if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+        echo_text "[*] Activation files restored to device"
+    else
+        echo_error "[ERROR] Failed to restore one or more activation files, please check activation_records/$serial_number folder and these paths on device:"
+        echo_code "    /mnt2/containers/Data/System/*/Library/activation_records/activation_record.plist (or pod_record.plist)"
+        echo_code "    /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+        echo_code "    /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+    fi
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--backup-activation-hfs' ]; then
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    serial_number=$("$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
     mkdir -p activation_records/$serial_number
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 || true"
-    "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt1/System/Library/CoreServices/SystemVersion.plist . || true
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+    "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt1/System/Library/CoreServices/SystemVersion.plist . || true
     if [ ! -s SystemVersion.plist ]; then
-        echo_error "[-] ERROR: Failed to mount filesystems as HFS+, probably iOS 10.3+, run ./sshrd.sh --backup-activation"
+        echo_error "[ERROR] Failed to mount filesystems as HFS+, probably iOS 10.3+, run ./sshrd.sh --backup-activation"
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     fi
+    device_build_version=$(grep -A1 '<key>ProductBuildVersion</key>' SystemVersion.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
     device_version=$(grep -A1 '<key>ProductVersion</key>' SystemVersion.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
     device_major=$(echo "$device_version" | cut -d. -f1)
     device_minor=$(echo "$device_version" | cut -d. -f2)
-    echo_text "[*] Device Version: "$device_version""; sleep 3
+    echo_text "[*] Device Version: "$device_version" ("$device_build_version")"
     rm -f SystemVersion.plist
+    if [ "$device_major" -eq 8 ] && [ "$device_minor" -lt 3 ] || [ "$device_major" -eq 7 ]; then
+        echo_warn "[WARNING] On iOS 7.0-8.2, activation files cannot be restored using SSH ramdisk, which will cause bootloop. If this is not what you expected, press Ctrl+C to cancel now"
+        countdown=9
+        i=$countdown
+        while [ $i -ge 0 ]
+        do
+            echo -n "$i "; sleep 1; i=$((i-1))
+        done
+    fi
     if [ "$device_major" -eq 10 ] && [ "$device_minor" -lt 3 ]; then
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 || true"
-        "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no "root@127.0.0.1:/mnt2/containers/Data/System/*/Library/activation_records/activation_record.plist" activation_records/$serial_number || "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no "root@127.0.0.1:/mnt2/containers/Data/System/*/Library/activation_records/pod_record.plist" activation_records/$serial_number || true
-        "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist activation_records/$serial_number || true
-        "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv activation_records/$serial_number || true
-        if [ -s activation_records/$serial_number/*_record.plist ] && [ -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] && [ -s activation_records/$serial_number/IC-Info.sisv ]; then
-        echo_text "[*] Activation files saved to activation_records/$serial_number"
-        elif [ -s activation_records/$serial_number/*_record.plist ] && [ -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] && [ ! -s activation_records/$serial_number/IC-Info.sisv ]; then
-        echo_error "[-] ERROR: Failed to save IC-Info.sisv, delete current /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot to lock screen, enter DFU mode, boot SSH ramdisk and try again"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 || true"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"; then
+            "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no "root@127.0.0.1:/mnt2/containers/Data/System/*/Library/activation_records/*_record.plist" activation_records/$serial_number > /dev/null 2>&1 || true
         else
-        echo_error "[-] ERROR: Failed to save activation files, select a ramdisk version that is identical or close enough to device version and try again"
+            echo_error "[ERROR] activation_record.plist does not exist on device"
         fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"; then
+            "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist activation_records/$serial_number || true
+        else
+            echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist does not exist on device"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+            "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv activation_records/$serial_number || true
+            if [ ! -s activation_records/$serial_number/IC-Info.sisv ]; then
+                echo_error "[ERROR] IC-Info.sisv is currently undownloadable, delete /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot to lock screen, this will generate a downloadable IC-Info.sisv, boot SSH ramdisk and try again"
+            else
+                :
+            fi
+        else
+            echo_error "[ERROR] IC-Info.sisv does not exist on device"
+        fi
+        if [ -s activation_records/$serial_number/*_record.plist ] && [ -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] && [ -s activation_records/$serial_number/IC-Info.sisv ]; then
+            echo_text "[*] Activation files saved to activation_records/$serial_number"
+        else
+            echo_error "[ERROR] Failed to save one or more activation files, if caused by undownloadable IC-Info.sisv, follow the instruction above, otherwise make sure device is not bypassed before"
+        fi
+        
+        # Obtain previous phone number from com.apple.commcenter.plist, requires plistutil installed on Linux
+        "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt2/wireless/Library/Preferences/com.apple.commcenter.plist . > /dev/null 2>&1 || true
+        if [ "$(uname)" = 'Darwin' ]; then
+            /usr/bin/plutil -convert xml1 com.apple.commcenter.plist > /dev/null 2>&1
+        else
+            plistutil -i com.apple.commcenter.plist -o com.apple.commcenter.plist > /dev/null 2>&1
+        fi
+        phone_number=$(grep -A1 '<key>PhoneNumber</key>' com.apple.commcenter.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
+        rm -f com.apple.commcenter.plist
+        if [ -n "$phone_number" ]; then
+            echo_text "[*] Phone Number: "+$phone_number""
+        fi
+        
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     elif [ "$device_major" -eq 9 ] && [ "$device_minor" -eq 3 ]; then
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 777 /mnt2/mobile/Media/*_record.plist /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media/IC-Info.sisv || true"
-        echo_text "[*] Activation files moved to /private/var/mobile/Media on device, and can be accessed at normal mode without a jailbreak"
-        echo_text "[*] If failing to move IC-Info.sisv, delete current /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot and try again"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] activation_record.plist does not exist on device"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist does not exist on device"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] IC-Info.sisv does not exist on device"
+        fi
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 777 /mnt2/mobile/Media/*_record.plist /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media/IC-Info.sisv || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/*_record.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/IC-Info.sisv"; then
+            echo_text "[*] Activation files moved to /private/var/mobile/Media on device, and can be accessed at normal mode using iDescriptor"
+        else
+            echo_error "[ERROR] Failed to move one or more activation files, make sure device is not bypassed before"
+        fi
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     elif [ "$device_major" -eq 9 ] && [ "$device_minor" -lt 3 ] || [ "$device_major" -eq 8 ]; then
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/mobile/Library/mad/activation_records/*_record.plist /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 777 /mnt2/mobile/Media/*_record.plist /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media/IC-Info.sisv || true"
-        echo_text "[*] Activation files moved to /private/var/mobile/Media on device, and can be accessed at normal mode without a jailbreak"
-        echo_text "[*] If failing to move IC-Info.sisv, delete current /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot and try again"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/mad/activation_records/*_record.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/mobile/Library/mad/activation_records/*_record.plist /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] activation_record.plist does not exist on device"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist does not exist on device"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] IC-Info.sisv does not exist on device"
+        fi
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 777 /mnt2/mobile/Media/*_record.plist /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media/IC-Info.sisv || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/*_record.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/IC-Info.sisv"; then
+            echo_text "[*] Activation files moved to /private/var/mobile/Media on device, and can be accessed at normal mode using iDescriptor"
+        else
+            echo_error "[ERROR] Failed to move one or more activation files, make sure device is not bypassed before"
+        fi
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     elif [ "$device_major" -eq 7 ]; then
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/root/Library/Lockdown/activation_records/*_record.plist /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv /mnt2/mobile/Media || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 777 /mnt2/mobile/Media/*_record.plist /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media/IC-Info.sisv || true"
-        echo_text "[*] Activation files moved to /private/var/mobile/Media on device, and can be accessed at normal mode without a jailbreak"
-        echo_text "[*] If failing to move IC-Info.sisv, delete current /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv, reboot and try again"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/root/Library/Lockdown/activation_records/*_record.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/root/Library/Lockdown/activation_records/*_record.plist /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] activation_record.plist does not exist on device"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist does not exist on device"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -v /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv /mnt2/mobile/Media || true"
+        else
+            echo_error "[ERROR] IC-Info.sisv does not exist on device"
+        fi
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 777 /mnt2/mobile/Media/*_record.plist /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/mobile/Media/IC-Info.sisv || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/*_record.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/IC-Info.sisv"; then
+            echo_text "[*] Activation files moved to /private/var/mobile/Media on device, and can be accessed at normal mode using iDescriptor"
+        else
+            echo_error "[ERROR] Failed to move one or more activation files, make sure device is not bypassed before"
+        fi
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     fi
 elif [ "$1" = '--restore-activation-hfs' ]; then
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    serial_number=$("$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 || true"
-    "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt1/System/Library/CoreServices/SystemVersion.plist . || true
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+    "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt1/System/Library/CoreServices/SystemVersion.plist . || true
     if [ ! -s SystemVersion.plist ]; then
-        echo_error "[-] ERROR: Failed to mount filesystems as HFS+, probably iOS 10.3+, run ./sshrd.sh --restore-activation"
+        echo_error "[ERROR] Failed to mount filesystems as HFS+, probably iOS 10.3+, run ./sshrd.sh --restore-activation"
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     fi
+    device_build_version=$(grep -A1 '<key>ProductBuildVersion</key>' SystemVersion.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
     device_version=$(grep -A1 '<key>ProductVersion</key>' SystemVersion.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
     device_major=$(echo "$device_version" | cut -d. -f1)
     device_minor=$(echo "$device_version" | cut -d. -f2)
-    echo_text "[*] Device Version: "$device_version""; sleep 3
+    echo_text "[*] Device Version: "$device_version" ("$device_build_version")"
     rm -f SystemVersion.plist
-    if [ "$device_major" -eq 10 ] && [ "$device_minor" -lt 3 ]; then
-        if [ ! -s activation_records/$serial_number/*_record.plist ]; then
-            echo_error "[-] ERROR: Activation files not found"
+    if [ "$device_major" -eq 10 ] && [ "$device_minor" -lt 3 ]; then    # On 10.0-10.2.1, /mnt2 can be properly mounted, no need to import activation files to Media folder
+        if [ ! -e activation_records/$serial_number ]; then
+            echo_error "[ERROR] Activation files not found"
             killall iproxy > /dev/null 2>&1 | true
-            if [ "$oscheck" = 'Linux' ]; then
+            if [ "$(uname)" = 'Linux' ]; then
                 sudo killall usbmuxd > /dev/null 2>&1 | true
             fi
             exit
         fi
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "rm -rf /mnt2/mobile/Media/Downloads/Activation /mnt2/mobile/Media/Activation"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Media/Downloads/Activation"
-        "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/activation_record.plist root@127.0.0.1:/mnt2/mobile/Media/Downloads/Activation || "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/pod_record.plist root@127.0.0.1:/mnt2/mobile/Media/Downloads/Activation
-        "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist root@127.0.0.1:/mnt2/mobile/Media/Downloads/Activation
-        "$oscheck"/sshpass -p alpine scp -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/IC-Info.sisv root@127.0.0.1:/mnt2/mobile/Media/Downloads/Activation
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Downloads/Activation /mnt2/mobile/Media"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown -R mobile:mobile /mnt2/mobile/Media/Activation"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod -R 755 /mnt2/mobile/Media/Activation"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Activation/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Activation/com.apple.commcenter.device_specific_nobackup.plist /mnt2/wireless/Library/Preferences"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 600 /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown _wireless:_wireless /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/Activation/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "rm -rf /mnt2/mobile/Media/Activation"
-        echo_text "[*] Activation files restored to device"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 || true"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+        if [ ! -s activation_records/$serial_number/*_record.plist ]; then
+            echo_error "[ERROR] activation_record.plist not found"
+        else
+            "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/*_record.plist root@127.0.0.1:/mnt2/tmp
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
+        fi
+        if [ ! -s activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ]; then
+            echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist not found"
+        else
+            "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist root@127.0.0.1:/mnt2/tmp
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/com.apple.commcenter.device_specific_nobackup.plist /mnt2/wireless/Library/Preferences"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 600 /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown _wireless:_wireless /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+        fi
+        if [ ! -s activation_records/$serial_number/IC-Info.sisv ]; then
+            echo_error "[ERROR] IC-Info.sisv not found"
+        else
+            "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no activation_records/$serial_number/IC-Info.sisv root@127.0.0.1:/mnt2/tmp
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+            echo_text "[*] Activation files restored to device"
+        else
+            echo_error "[ERROR] Failed to restore one or more activation files, please check activation_records/$serial_number folder and these paths on device:"
+            echo_code "    /mnt2/containers/Data/System/*/Library/activation_records/activation_record.plist (or pod_record.plist)"
+            echo_code "    /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+            echo_code "    /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+        fi
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
-# Currently not working, on 9.3.x activation files won't be recognized
+# On 9.3.x activation_record.plist won't be recognized, to hacktivate device, add key a6vjPkzcRjrsXmniFsm0dg in CacheExtra item in com.apple.MobileGestalt.plist
     elif [ "$device_major" -eq 9 ] && [ "$device_minor" -eq 3 ]; then
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/wireless/Library/Preferences"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 600 /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown _wireless:_wireless /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
-        echo_text "[*] Activation files restored to device"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/*_record.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cd /mnt2/containers/Data/System/*/Library/internal; mkdir -p ../activation_records"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/mobile/Media/*_record.plist /mnt2/containers/Data/System/*/Library/activation_records"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"
+        else
+            echo_error "[ERROR] activation_record.plist is not found in /mnt2/mobile/Media"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/wireless/Library/Preferences"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 600 /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown _wireless:_wireless /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+        else
+            echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist is not found in /mnt2/mobile/Media"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/IC-Info.sisv"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/mobile/Media/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+        else
+            echo_error "[ERROR] IC-Info.sisv is not found in /mnt2/mobile/Media"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+            echo_text "[*] Activation files restored to device"
+        else
+            echo_error "[ERROR] Failed to restore one or more activation files, please import activation_record.plist, com.apple.commcenter.device_specific_nobackup.plist, IC-Info.sisv to /private/var/mobile/Media at normal mode"
+        fi
+        echo_warn "[WARNING] On 9.3.x activation_record.plist won't be recognized, to hacktivate device, add key a6vjPkzcRjrsXmniFsm0dg in CacheExtra item in com.apple.MobileGestalt.plist, you may use xplist to do this"
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     elif ([ "$device_major" -eq 8 ] && [ "$device_minor" -ge 3 ]) || ([ "$device_major" -eq 9 ] && [ "$device_minor" -lt 3 ]); then
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 || true"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/mad/activation_records"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/*_record.plist /mnt2/mobile/Library/mad/activation_records"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/mobile/Library/mad/activation_records/*_record.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/mobile/Library/mad/activation_records/*_record.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/wireless/Library/Preferences"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 600 /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown _wireless:_wireless /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Media/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
-        "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
-        echo_text "[*] Activation files restored to device"
+        "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/*_record.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/mad/activation_records"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/mobile/Media/*_record.plist /mnt2/mobile/Library/mad/activation_records"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 666 /mnt2/mobile/Library/mad/activation_records/*_record.plist"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:nobody /mnt2/mobile/Library/mad/activation_records/*_record.plist"
+        else
+            echo_error "[ERROR] activation_record.plist is not found in /mnt2/mobile/Media"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/mobile/Media/com.apple.commcenter.device_specific_nobackup.plist /mnt2/wireless/Library/Preferences"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 600 /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown _wireless:_wireless /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist"
+        else
+            echo_error "[ERROR] com.apple.commcenter.device_specific_nobackup.plist is not found in /mnt2/mobile/Media"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Media/IC-Info.sisv"; then
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/mobile/Media/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+            "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
+        else
+            echo_error "[ERROR] IC-Info.sisv is not found in /mnt2/mobile/Media"
+        fi
+        if "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/mad/activation_records/*_record.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/wireless/Library/Preferences/com.apple.commcenter.device_specific_nobackup.plist" && "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"; then
+            echo_text "[*] Activation files restored to device"
+        else
+            echo_error "[ERROR] Failed to restore one or more activation files, please import activation_record.plist, com.apple.commcenter.device_specific_nobackup.plist, IC-Info.sisv to /private/var/mobile/Media at normal mode"
+        fi
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     elif [ "$device_major" -eq 8 ] && [ "$device_minor" -lt 3 ] || [ "$device_major" -eq 7 ]; then
-        echo_error "[-] ERROR: Restoring activation files via ramdisk is not supported on 64-bit iOS 7.0-8.2, which will cause bootloop"
+        echo_error "[ERROR] Restoring activation files via ramdisk is not supported on 64-bit iOS 7.0-8.2, which will cause bootloop"
         killall iproxy > /dev/null 2>&1 | true
-        if [ "$oscheck" = 'Linux' ]; then
+        if [ "$(uname)" = 'Linux' ]; then
             sudo killall usbmuxd > /dev/null 2>&1 | true
         fi
         exit
     fi
 elif [ "$1" = '--dump-nand' ]; then
-    if [ -s disk0.gz ]; then
-        echo_error "[-] ERROR: Please rename current disk0.gz first"
-        exit
-    fi
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if [ -s disk0_$serial_number.gz ]; then
+        echo_error "[ERROR] File exists, please rename or remove disk0_$serial_number.gz first"
+        exit
+    fi
     echo_text "[*] Dumping /dev/disk0, this will take a long time"
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "dd if=/dev/disk0 bs=64k | gzip -1 -" | dd of=disk0.gz bs=64k
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "dd if=/dev/disk0 bs=64k | gzip -1 -" | dd of=disk0_$serial_number.gz bs=64k
     echo_text "[*] Done!"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--restore-nand' ]; then
-    if [ ! -s disk0.gz ]; then
-        echo_error "[-] ERROR: disk0.gz not found"
-        exit
-    fi
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if [ ! -s disk0_$serial_number.gz ]; then
+        echo_error "[ERROR] disk0_$serial_number.gz not found"
+        exit
+    fi
     echo_text "[*] Restoring /dev/disk0, this will take a long time"
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    dd if=disk0.gz bs=64k | "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "gzip -d | dd of=/dev/disk0 bs=64k"
+    dd if=disk0_$serial_number.gz bs=64k | "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "gzip -d | dd of=/dev/disk0 bs=64k"
     echo_text "[*] Done!"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--dump-disk0s1s1' ]; then
-    if [ -s disk0s1s1.gz ]; then
-        echo_error "[-] ERROR: Please rename current disk0s1s1.gz first"
-        exit
-    fi
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if [ -s disk0s1s1_$serial_number.gz ]; then
+        echo_error "[ERROR] File exists, please rename or remove disk0s1s1_$serial_number.gz first"
+        exit
+    fi
     echo_text "[*] Dumping /dev/disk0s1s1, this will take several minutes"
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "dd if=/dev/disk0s1s1 bs=64k | gzip -1 -" | dd of=disk0s1s1.gz bs=64k
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/umount /mnt1 > /dev/null 2>&1 || true"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "dd if=/dev/disk0s1s1 bs=64k | gzip -1 -" | dd of=disk0s1s1_$serial_number.gz bs=64k
     echo_text "[*] Done!"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--restore-disk0s1s1' ]; then
-    if [ ! -s disk0s1s1.gz ]; then
-        echo_error "[-] ERROR: disk0s1s1.gz not found"
-        exit
-    fi
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if [ ! -s disk0s1s1_$serial_number.gz ]; then
+        echo_error "[ERROR] disk0s1s1_$serial_number.gz not found"
+        exit
+    fi
     echo_text "[*] Restoring /dev/disk0s1s1, this will take several minutes"
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    dd if=disk0s1s1.gz bs=64k | "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "gzip -d | dd of=/dev/disk0s1s1 bs=64k"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/umount /mnt1 > /dev/null 2>&1 || true"
+    dd if=disk0s1s1_$serial_number.gz bs=64k | "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "gzip -d | dd of=/dev/disk0s1s1 bs=64k"
     echo_text "[*] Done!"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
+        sudo killall usbmuxd > /dev/null 2>&1 | true
+    fi
+    exit
+elif [ "$1" = '--dump-disk0s1s2' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
+        sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
+        sudo killall usbmuxd > /dev/null 2>&1 | true
+        sleep .1
+        sudo usbmuxd -pf > /dev/null 2>&1 &
+        sleep .1
+    fi
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if [ -s disk0s1s2_$serial_number.gz ]; then
+        echo_error "[ERROR] File exists, please rename or remove disk0s1s2_$serial_number.gz first"
+        exit
+    fi
+    echo_text "[*] Dumping /dev/disk0s1s2, this will take a long time"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/umount /mnt2 > /dev/null 2>&1 || true"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "dd if=/dev/disk0s1s2 bs=64k | gzip -1 -" | dd of=disk0s1s2_$serial_number.gz bs=64k
+    echo_text "[*] Done!"
+    killall iproxy > /dev/null 2>&1 | true
+    if [ "$(uname)" = 'Linux' ]; then
+        sudo killall usbmuxd > /dev/null 2>&1 | true
+    fi
+    exit
+elif [ "$1" = '--restore-disk0s1s2' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
+        sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
+        sudo killall usbmuxd > /dev/null 2>&1 | true
+        sleep .1
+        sudo usbmuxd -pf > /dev/null 2>&1 &
+        sleep .1
+    fi
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    serial_number=$("$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if [ ! -s disk0s1s2_$serial_number.gz ]; then
+        echo_error "[ERROR] disk0s1s2_$serial_number.gz not found"
+        exit
+    fi
+    echo_text "[*] Restoring /dev/disk0s1s2, this will take a long time"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/umount /mnt2 > /dev/null 2>&1 || true"
+    dd if=disk0s1s2_$serial_number.gz bs=64k | "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "gzip -d | dd of=/dev/disk0s1s2 bs=64k"
+    echo_text "[*] Done!"
+    killall iproxy > /dev/null 2>&1 | true
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--brute-force' ]; then
-    echo_warn "[!] WARNING: Only compatible with iOS 7-8"; sleep 3
-    if [ "$oscheck" = 'Linux' ]; then
+    echo_warn "[WARNING] Only compatible with iOS 7-8"; sleep 3
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 && /sbin/mount_hfs /dev/disk0s1s2 /mnt2"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cp -f /com.apple.springboard.plist /mnt1"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -f /mnt2/mobile/Library/Preferences/com.apple.springboard.plist /mnt2/mobile/Library/Preferences/com.apple.springboard.plist.bak"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "ln -s /com.apple.springboard.plist /mnt2/mobile/Library/Preferences/com.apple.springboard.plist"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "rm -rf /mnt2/mobile/Library/SpringBoard/LockoutStateJournal.plist"
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s1 /mnt1 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/sbin/mount_hfs /dev/disk0s1s2 /mnt2 2>&1 | grep -v 'Could not create property for re-key environment check' || true"
+    "$(uname)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no root@127.0.0.1:/mnt1/System/Library/CoreServices/SystemVersion.plist . || true
+    device_build_version=$(grep -A1 '<key>ProductBuildVersion</key>' SystemVersion.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
+    device_version=$(grep -A1 '<key>ProductVersion</key>' SystemVersion.plist | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
+    device_major=$(echo "$device_version" | cut -d. -f1)
+    echo_text "[*] Device Version: "$device_version" ("$device_build_version")"
+    rm -f SystemVersion.plist
+    if [ "$device_major" -eq 7 ] || [ "$device_major" -eq 8 ]; then
+        :
+    else
+        echo_error "[ERROR] Incompatible version, unlimited passcode attempts is not supported"
+        killall iproxy > /dev/null 2>&1 | true
+        if [ "$(uname)" = 'Linux' ]; then
+            sudo killall usbmuxd > /dev/null 2>&1 | true
+        fi
+        exit
+    fi
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "cp -vf /com.apple.springboard.plist /mnt1"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/mobile/Library/Preferences/com.apple.springboard.plist /mnt2/mobile/Library/Preferences/com.apple.springboard.plist.bak"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "ln -s /com.apple.springboard.plist /mnt2/mobile/Library/Preferences/com.apple.springboard.plist"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "rm -rf /mnt2/mobile/Library/SpringBoard/LockoutStateJournal.plist"
     echo_text "[*] Now the device should get unlimited passcode attempts"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--install-trollstore' ]; then
-    echo_warn "[!] WARNING: Only compatible with iOS 14.0-16.6.1, 16.7 RC, 17.0"; sleep 3
-    if [ "$oscheck" = 'Linux' ]; then
+    echo_warn "[WARNING] Only compatible with iOS 14.0-16.6.1, 16.7 RC, 17.0"; sleep 3
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/trollstoreinstaller Tips"
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/trollstoreinstaller Tips"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
 elif [ "$1" = '--exit-recovery' ]; then
-    "$oscheck"/irecovery -n
+    check=$("$(uname)"/irecovery -q | grep CPID | sed 's/CPID: //')
+    replace=$("$(uname)"/irecovery -q | grep MODEL | sed 's/MODEL: //')
+    deviceid=$("$(uname)"/irecovery -q | grep PRODUCT | sed 's/PRODUCT: //')
+    device_serial=$("$(uname)"/irecovery -q | grep SRNM | sed 's/SRNM: //')
+    echo_text "[*] CPID: "$check"    MODEL: "$replace"    PRODUCT: "$deviceid"    SN: "$device_serial""
+    "$(uname)"/irecovery -n
     exit
 elif [ "$1" = 'reset' ]; then
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo systemctl stop usbmuxd > /dev/null 2>&1 | true
         sudo killall usbmuxd > /dev/null 2>&1 | true
         sleep .1
         sudo usbmuxd -pf > /dev/null 2>&1 &
         sleep .1
     fi
-    "$oscheck"/iproxy 2222 22 > /dev/null 2>&1 &
-    "$oscheck"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/nvram oblit-inprogress=5"
+    "$(uname)"/iproxy 2222 22 > /dev/null 2>&1 &
+    "$(uname)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/nvram oblit-inprogress=5"
     echo_text "[*] Device should show a progress bar and erase all data after rebooting"
     echo_text "[*] If running this command by mistake, SSH into device, run /usr/sbin/nvram -c"
     killall iproxy > /dev/null 2>&1 | true
-    if [ "$oscheck" = 'Linux' ]; then
+    if [ "$(uname)" = 'Linux' ]; then
         sudo killall usbmuxd > /dev/null 2>&1 | true
     fi
     exit
-elif [ "$oscheck" = 'Darwin' ]; then
-    if ! (system_profiler SPUSBDataType 2> /dev/null | grep ' Apple Mobile Device (DFU Mode)' >> /dev/null); then
+elif [ "$(uname)" = 'Darwin' ]; then
+    if ! ("$(uname)"/irecovery -q | grep 'MODE: DFU' > /dev/null 2>&1); then
         echo_text "[*] Waiting for device in DFU mode"
     fi
     
-    while ! (system_profiler SPUSBDataType 2> /dev/null | grep ' Apple Mobile Device (DFU Mode)' >> /dev/null); do
+    while ! ("$(uname)"/irecovery -q | grep 'MODE: DFU' > /dev/null 2>&1); do
         sleep 1
     done
 else
@@ -565,105 +812,136 @@ else
     done
 fi
 
-echo_text "[*] Getting device info and pwning... this may take a second"
-check=$("$oscheck"/irecovery -q | grep CPID | sed 's/CPID: //')
-replace=$("$oscheck"/irecovery -q | grep MODEL | sed 's/MODEL: //')
-deviceid=$("$oscheck"/irecovery -q | grep PRODUCT | sed 's/PRODUCT: //')
+check=$("$(uname)"/irecovery -q | grep CPID | sed 's/CPID: //')
+replace=$("$(uname)"/irecovery -q | grep MODEL | sed 's/MODEL: //')
+deviceid=$("$(uname)"/irecovery -q | grep PRODUCT | sed 's/PRODUCT: //')
+echo_text "[*] CPID: "$check"    MODEL: "$replace"    PRODUCT: "$deviceid""
 
-ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$oscheck"/jq '.firmwares | .[] | select(.version=="'$1'")' | "$oscheck"/jq -s '.[0] | .url' --raw-output)
+ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$(uname)"/jq '.firmwares | .[] | select(.version=="'$1'")' | "$(uname)"/jq -s '.[0] | .url' --raw-output)
 
 if [ "$1" = 'boot' ]; then
-    if [ ! -e sshramdisk/iBSS.img4 ] || [ ! -e sshramdisk/iBEC.img4 ] || [ ! -e sshramdisk/kernelcache.img4 ] || [ ! -e sshramdisk/devicetree.img4 ] || [ ! -e sshramdisk/ramdisk.img4 ]; then
-        echo_error "[-] ERROR: Please create an SSH ramdisk first!"
+    if [ ! -e sshramdisk/iBSS.img4 ] || [ ! -e sshramdisk/iBEC.img4 ] || [ ! -e sshramdisk/kernelcache.img4 ] || [ ! -e sshramdisk/devicetree.img4 ] || [ ! -e sshramdisk/ramdisk.img4 ] || [ ! -e sshramdisk/version.txt ]; then
+        echo_error "[ERROR] Please create an SSH ramdisk first!"
         exit
     fi
-
+    if [ ! -e sshramdisk/"$replace" ]; then
+        echo_error "[ERROR] Ramdisk model does not match device model, please re-create ramdisk!"
+        exit
+    fi
     major=$(cat sshramdisk/version.txt | awk -F. '{print $1}')
     minor=$(cat sshramdisk/version.txt | awk -F. '{print $2}')
     patch=$(cat sshramdisk/version.txt | awk -F. '{print $3}')
     major=${major:-0}
     minor=${minor:-0}
     patch=${patch:-0}
+    echo_text "[*] Ramdisk Version: "$(cat sshramdisk/version.txt)""
     
-    if [ "$check" = '0x8960' ] && [ "$oscheck" = 'Linux' ]; then
-        device_pwnd="$("$oscheck"/irecovery -q | grep "PWND" | cut -c 7-)"
+    # iOS 15 ramdisk crashes when running `/usr/sbin/ioreg -l | grep IOPlatformSerialNumber` for unknown reason, which is used to get SN on ramdisk mode
+    if [ "$major" -eq 15 ]; then
+        echo_warn "[WARNING] iOS 15 ramdisk detected, if it crashes at saving/restoring activation files, use 14.6 ramdisk instead"; sleep 5
+    fi
+    
+    if [ "$check" = '0x8960' ] && [ "$(uname)" = 'Linux' ]; then
+        device_pwnd="$("$(uname)"/irecovery -q | grep "PWND" | cut -c 7-)"
         if [ -z "$device_pwnd" ]; then
-            echo_error "[-] ERROR: Please use ipwnder_lite to enter pwnDFU mode first!"
+            echo_error "[ERROR] Please use ipwnder_lite to enter pwnDFU mode first!"
             exit
         else
             echo_text "[*] Pwned: "$device_pwnd""
         fi
     else
-        "$oscheck"/gaster pwn > /dev/null
+        echo_text "[*] gaster pwn"
+        "$(uname)"/gaster pwn
     fi
-    "$oscheck"/gaster reset > /dev/null
-    "$oscheck"/irecovery -f sshramdisk/iBSS.img4
+    echo_text "[*] gaster reset"
+    "$(uname)"/gaster reset
+    echo_text "[*] irecovery -f iBSS.img4"
+    "$(uname)"/irecovery -f sshramdisk/iBSS.img4
     sleep 5
-    "$oscheck"/irecovery -f sshramdisk/iBEC.img4
-
+    echo_text "[*] irecovery -f iBEC.img4"
+    "$(uname)"/irecovery -f sshramdisk/iBEC.img4
     if [ "$check" = '0x8010' ] || [ "$check" = '0x8015' ] || [ "$check" = '0x8011' ] || [ "$check" = '0x8012' ]; then
-        "$oscheck"/irecovery -c go
+        echo_text "[*] irecovery -c go"
+        "$(uname)"/irecovery -c go
     fi
-    sleep 2
-    "$oscheck"/irecovery -f sshramdisk/logo.img4
-    "$oscheck"/irecovery -c "setpicture 0x1"
-    "$oscheck"/irecovery -f sshramdisk/ramdisk.img4
-    "$oscheck"/irecovery -c ramdisk
+    sleep 5
+    if ! ("$(uname)"/irecovery -q | grep 'MODE: Recovery' > /dev/null 2>&1); then
+        echo_error "[ERROR] Unable to find device in recovery mode, unplug and replug device now"
+    fi
+    while ! ("$(uname)"/irecovery -q | grep 'MODE: Recovery' > /dev/null 2>&1); do
+        sleep 1
+    done
+    echo_text "[*] irecovery -f logo.img4"
+    "$(uname)"/irecovery -f sshramdisk/logo.img4
+    echo_text "[*] irecovery -c 'setpicture 0x1'"
+    "$(uname)"/irecovery -c "setpicture 0x1"
+    echo_text "[*] irecovery -f ramdisk.img4"
+    "$(uname)"/irecovery -f sshramdisk/ramdisk.img4
+    echo_text "[*] irecovery -c ramdisk"
+    "$(uname)"/irecovery -c ramdisk
     if [ "$major" -ge 16 ]; then
-        "$oscheck"/irecovery -f sshramdisk/sep-firmware.img4
-        "$oscheck"/irecovery -c firmware
+        echo_text "[*] irecovery -f sep-firmware.img4"
+        "$(uname)"/irecovery -f sshramdisk/sep-firmware.img4
+        echo_text "[*] irecovery -c firmware"
+        "$(uname)"/irecovery -c firmware
     fi
-    "$oscheck"/irecovery -f sshramdisk/devicetree.img4
-    "$oscheck"/irecovery -c devicetree
+    echo_text "[*] irecovery -f devicetree.img4"
+    "$(uname)"/irecovery -f sshramdisk/devicetree.img4
+    echo_text "[*] irecovery -c devicetree"
+    "$(uname)"/irecovery -c devicetree
     if [ "$major" -ge 12 ]; then
-        "$oscheck"/irecovery -f sshramdisk/trustcache.img4
-        "$oscheck"/irecovery -c firmware
+        echo_text "[*] irecovery -f trustcache.img4"
+        "$(uname)"/irecovery -f sshramdisk/trustcache.img4
+        echo_text "[*] irecovery -c firmware"
+        "$(uname)"/irecovery -c firmware
     fi
-    "$oscheck"/irecovery -f sshramdisk/kernelcache.img4
-    "$oscheck"/irecovery -c bootx
+    echo_text "[*] irecovery -f kernelcache.img4"
+    "$(uname)"/irecovery -f sshramdisk/kernelcache.img4
+    echo_text "[*] irecovery -c bootx"
+    "$(uname)"/irecovery -c bootx
 
     echo_text "[*] Device should now show text on screen, run ./sshrd.sh ssh to SSH into device"
     exit
 fi
 
-if [ "$check" = '0x8960' ] && [ "$oscheck" = 'Linux' ]; then
-    echo_warn "[!] WARNING: Linux and A7 device detected, the device must be placed into pwnDFU using ipwnder_lite, otherwise the boot process will fail"; sleep 5
+if [ "$check" = '0x8960' ] && [ "$(uname)" = 'Linux' ]; then
+    echo_warn "[WARNING] Linux and A7 device detected, the device must be placed into pwnDFU using ipwnder_lite, otherwise the boot process will fail"; sleep 5
 else
-    "$oscheck"/gaster pwn > /dev/null
+    "$(uname)"/gaster pwn
 fi
 rm -rf sshramdisk work 12rd; mkdir work sshramdisk
-"$oscheck"/img4tool -e -s other/shsh/"${check}".shsh -m work/IM4M
+"$(uname)"/img4tool -e -s other/shsh/"${check}".shsh -m work/IM4M
 cd work
 
-../"$oscheck"/pzb -g BuildManifest.plist "$ipswurl"
-../"$oscheck"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
-../"$oscheck"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
-../"$oscheck"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
+../"$(uname)"/pzb -g BuildManifest.plist "$ipswurl"
+../"$(uname)"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
+../"$(uname)"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
+../"$(uname)"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
 
 if [ "$major" -ge 16 ]; then
-    ../"$oscheck"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/sep-firmware[.]/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
+    ../"$(uname)"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/sep-firmware[.]/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
 fi
 
-if [ "$oscheck" = 'Darwin' ]; then
+if [ "$(uname)" = 'Darwin' ]; then
     if [ "$major" -lt 12 ]; then
     :
     else
-    ../"$oscheck"/pzb -g Firmware/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)".trustcache "$ipswurl"
+    ../"$(uname)"/pzb -g Firmware/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)".trustcache "$ipswurl"
     fi
 else
     if [ "$major" -lt 12 ]; then
     :
     else
-    ../"$oscheck"/pzb -g Firmware/"$(../Linux/PlistBuddy BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')".trustcache "$ipswurl"
+    ../"$(uname)"/pzb -g Firmware/"$(../Linux/PlistBuddy BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')".trustcache "$ipswurl"
     fi
 fi
 
-../"$oscheck"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
+../"$(uname)"/pzb -g "$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" "$ipswurl"
 
-if [ "$oscheck" = 'Darwin' ]; then
-    ../"$oscheck"/pzb -g "$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" "$ipswurl"
+if [ "$(uname)" = 'Darwin' ]; then
+    ../"$(uname)"/pzb -g "$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" "$ipswurl"
 else
-    ../"$oscheck"/pzb -g "$(../Linux/PlistBuddy BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" "$ipswurl"
+    ../"$(uname)"/pzb -g "$(../Linux/PlistBuddy BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" "$ipswurl"
 fi
 cd ..
 
@@ -675,103 +953,103 @@ kernelcache_ivkey="$(sed -n "s/^"${replace}"_"${version}"_Kernelcache=\"\([^\"]*
 restoreramdisk_ivkey="$(sed -n "s/^"${replace}"_"${version}"_RestoreRamdisk=\"\([^\"]*\)\"$/\1/p" other/ivkey)"
 
 if [ "$major" -ge 18 ]; then    # iBSS and iBEC have been unencrypted since iOS 18
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBSS.dec
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBEC.dec
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBSS.dec
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBEC.dec
 elif [ "$check" = '0x8960' ]; then
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBSS.dec -k "$ibss_ivkey"
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBEC.dec -k "$ibec_ivkey"
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBSS.dec -k "$ibss_ivkey"
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBEC.dec -k "$ibec_ivkey"
 else
-    "$oscheck"/gaster decrypt work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" work/iBSS.dec
-    "$oscheck"/gaster decrypt work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" work/iBEC.dec
+    "$(uname)"/gaster decrypt work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" work/iBSS.dec
+    "$(uname)"/gaster decrypt work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" work/iBEC.dec
 fi
 if ([ "$major" -eq 10 ] && [ "$minor" -lt 3 ] || [ "$major" -lt 10 ]) || ([ "$major" -le 12 ] && ([ "$deviceid" = 'iPad6,3' ] || [ "$deviceid" = 'iPad6,4' ] || [ "$deviceid" = 'iPad6,7' ] || [ "$deviceid" = 'iPad6,8' ] || [ "$deviceid" = 'iPad6,11' ] || [ "$deviceid" = 'iPad6,12' ])); then
-    "$oscheck"/kairos work/iBSS.dec work/iBSS.patched
-    "$oscheck"/img4 -i work/iBSS.patched -o sshramdisk/iBSS.img4 -M work/IM4M -A -T ibss
-    "$oscheck"/kairos work/iBEC.dec work/iBEC.patched -b "rd=md0 debug=0x2014e -v wdt=-1 `if [ -z "$2" ]; then :; else echo "$2=$3"; fi` `if [ "$check" = '0x8960' ] || [ "$check" = '0x7000' ] || [ "$check" = '0x7001' ]; then echo "nand-enable-reformat=1 -restore"; fi` `if [ "$major" -lt 10 ]; then echo "amfi=0xff cs_enforcement_disable=1"; fi`" -n
-    "$oscheck"/img4 -i work/iBEC.patched -o sshramdisk/iBEC.img4 -M work/IM4M -A -T ibec
+    "$(uname)"/kairos work/iBSS.dec work/iBSS.patched
+    "$(uname)"/img4 -i work/iBSS.patched -o sshramdisk/iBSS.img4 -M work/IM4M -A -T ibss
+    "$(uname)"/kairos work/iBEC.dec work/iBEC.patched -b "rd=md0 debug=0x2014e -v wdt=-1 `if [ -z "$2" ]; then :; else echo "$2=$3"; fi` `if [ "$check" = '0x8960' ] || [ "$check" = '0x7000' ] || [ "$check" = '0x7001' ]; then echo "nand-enable-reformat=1 -restore"; fi` `if [ "$major" -lt 10 ]; then echo "amfi=0xff cs_enforcement_disable=1"; fi`" -n
+    "$(uname)"/img4 -i work/iBEC.patched -o sshramdisk/iBEC.img4 -M work/IM4M -A -T ibec
 else
-    "$oscheck"/iBoot64Patcher work/iBSS.dec work/iBSS.patched
-    "$oscheck"/img4 -i work/iBSS.patched -o sshramdisk/iBSS.img4 -M work/IM4M -A -T ibss
-    "$oscheck"/iBoot64Patcher work/iBEC.dec work/iBEC.patched -b "rd=md0 debug=0x2014e -v wdt=-1 `if [ -z "$2" ]; then :; else echo "$2=$3"; fi` `if [ "$check" = '0x8960' ] || [ "$check" = '0x7000' ] || [ "$check" = '0x7001' ]; then echo "nand-enable-reformat=1 -restore"; fi`" -n
-    "$oscheck"/img4 -i work/iBEC.patched -o sshramdisk/iBEC.img4 -M work/IM4M -A -T ibec
+    "$(uname)"/iBoot64Patcher work/iBSS.dec work/iBSS.patched
+    "$(uname)"/img4 -i work/iBSS.patched -o sshramdisk/iBSS.img4 -M work/IM4M -A -T ibss
+    "$(uname)"/iBoot64Patcher work/iBEC.dec work/iBEC.patched -b "rd=md0 debug=0x2014e -v wdt=-1 `if [ -z "$2" ]; then :; else echo "$2=$3"; fi` `if [ "$check" = '0x8960' ] || [ "$check" = '0x7000' ] || [ "$check" = '0x7001' ]; then echo "nand-enable-reformat=1 -restore"; fi`" -n
+    "$(uname)"/img4 -i work/iBEC.patched -o sshramdisk/iBEC.img4 -M work/IM4M -A -T ibec
 fi   
 
 if [ "$major" -lt 10 ]; then
     if [ "$check" = '0x8960' ]; then
         :
     else
-        kbag=$("$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" -b | head -n 1)
-        iv=$("$oscheck"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ',' -f 1 | cut -d ' ' -f 2)
-        key=$("$oscheck"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ' ' -f 4)
+        kbag=$("$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" -b | head -n 1)
+        iv=$("$(uname)"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ',' -f 1 | cut -d ' ' -f 2)
+        key=$("$(uname)"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ' ' -f 4)
         kernelcache_ivkey="$iv$key"
     fi
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" -o work/kernelcache.im4p -k "$kernelcache_ivkey" -D
-    "$oscheck"/img4 -i work/kernelcache.im4p -o sshramdisk/kernelcache.img4 -M work/IM4M -T rkrn
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" -o work/kernelcache.im4p -k "$kernelcache_ivkey" -D
+    "$(uname)"/img4 -i work/kernelcache.im4p -o sshramdisk/kernelcache.img4 -M work/IM4M -T rkrn
 else
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" -o work/kcache.raw
-    "$oscheck"/KPlooshFinder work/kcache.raw work/kcache.patched
-    "$oscheck"/kerneldiff work/kcache.raw work/kcache.patched work/kc.bpatch
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" -o sshramdisk/kernelcache.img4 -M work/IM4M -T rkrn -P work/kc.bpatch `if [ "$oscheck" = 'Linux' ]; then echo "-J"; fi`
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" -o work/kcache.raw
+    "$(uname)"/KPlooshFinder work/kcache.raw work/kcache.patched
+    "$(uname)"/kerneldiff work/kcache.raw work/kcache.patched work/kc.bpatch
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/kernelcache.release/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1)" -o sshramdisk/kernelcache.img4 -M work/IM4M -T rkrn -P work/kc.bpatch `if [ "$(uname)" = 'Linux' ]; then echo "-J"; fi`
 fi 
 
 if [ "$major" -eq 10 ] && [ "$minor" -lt 3 ]; then
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' | cut -d\> -f2 | cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]all_flash[.].*[.]production[/]//')" -o sshramdisk/devicetree.img4 -M work/IM4M -T rdtr
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' | cut -d\> -f2 | cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]all_flash[.].*[.]production[/]//')" -o sshramdisk/devicetree.img4 -M work/IM4M -T rdtr
 elif [ "$major" -lt 10 ]; then
     if [ "$check" = '0x8960' ]; then
         :
     else
-        kbag=$("$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' | cut -d\> -f2 | cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]all_flash[.].*[.]production[/]//')" -b | head -n 1)
-        iv=$("$oscheck"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ',' -f 1 | cut -d ' ' -f 2)
-        key=$("$oscheck"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ' ' -f 4)
+        kbag=$("$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' | cut -d\> -f2 | cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]all_flash[.].*[.]production[/]//')" -b | head -n 1)
+        iv=$("$(uname)"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ',' -f 1 | cut -d ' ' -f 2)
+        key=$("$(uname)"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ' ' -f 4)
         devicetree_ivkey="$iv$key"
     fi
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' | cut -d\> -f2 | cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]all_flash[.].*[.]production[/]//')" -o work/dtree.raw -k "$devicetree_ivkey"
-    "$oscheck"/img4 -i work/dtree.raw -o sshramdisk/devicetree.img4 -A -M work/IM4M -T rdtr
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' | cut -d\> -f2 | cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]all_flash[.].*[.]production[/]//')" -o work/dtree.raw -k "$devicetree_ivkey"
+    "$(uname)"/img4 -i work/dtree.raw -o sshramdisk/devicetree.img4 -A -M work/IM4M -T rdtr
 else
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]//')" -o sshramdisk/devicetree.img4 -M work/IM4M -T rdtr
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/DeviceTree[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]//')" -o sshramdisk/devicetree.img4 -M work/IM4M -T rdtr
 fi   
 
 if [ "$major" -ge 16 ]; then
-    "$oscheck"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/sep-firmware[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]//')" -o sshramdisk/sep-firmware.img4 -M work/IM4M -T sepi
+    "$(uname)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/sep-firmware[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]all_flash[/]//')" -o sshramdisk/sep-firmware.img4 -M work/IM4M -T sepi
 fi
 
-if [ "$oscheck" = 'Darwin' ]; then
+if [ "$(uname)" = 'Darwin' ]; then
     if [ "$major" -ge 12 ]; then
-        "$oscheck"/img4 -i work/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)".trustcache -o sshramdisk/trustcache.img4 -M work/IM4M -T rtsc
+        "$(uname)"/img4 -i work/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)".trustcache -o sshramdisk/trustcache.img4 -M work/IM4M -T rtsc
     fi
     if [ "$major" -lt 10 ]; then
         if [ "$check" = '0x8960' ]; then
             :
         else
-            kbag=$("$oscheck"/img4 -i work/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" -b | head -n 1)
-            iv=$("$oscheck"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ',' -f 1 | cut -d ' ' -f 2)
-            key=$("$oscheck"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ' ' -f 4)
+            kbag=$("$(uname)"/img4 -i work/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" -b | head -n 1)
+            iv=$("$(uname)"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ',' -f 1 | cut -d ' ' -f 2)
+            key=$("$(uname)"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ' ' -f 4)
             restoreramdisk_ivkey="$iv$key"
         fi
-        "$oscheck"/img4 -i work/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" -o work/ramdisk.dmg -k "$restoreramdisk_ivkey"
+        "$(uname)"/img4 -i work/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" -o work/ramdisk.dmg -k "$restoreramdisk_ivkey"
     else
-        "$oscheck"/img4 -i work/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" -o work/ramdisk.dmg
+        "$(uname)"/img4 -i work/"$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" -o work/ramdisk.dmg
     fi
 else
     if [ "$major" -ge 12 ]; then
-        "$oscheck"/img4 -i work/"$(Linux/PlistBuddy work/BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')".trustcache -o sshramdisk/trustcache.img4 -M work/IM4M -T rtsc
+        "$(uname)"/img4 -i work/"$(Linux/PlistBuddy work/BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')".trustcache -o sshramdisk/trustcache.img4 -M work/IM4M -T rtsc
     fi
     if [ "$major" -lt 10 ]; then
         if [ "$check" = '0x8960' ]; then
             :
         else
-            kbag=$("$oscheck"/img4 -i work/"$(Linux/PlistBuddy work/BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" -b | head -n 1)
-            iv=$("$oscheck"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ',' -f 1 | cut -d ' ' -f 2)
-            key=$("$oscheck"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ' ' -f 4)
+            kbag=$("$(uname)"/img4 -i work/"$(Linux/PlistBuddy work/BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" -b | head -n 1)
+            iv=$("$(uname)"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ',' -f 1 | cut -d ' ' -f 2)
+            key=$("$(uname)"/gaster decrypt_kbag "$kbag" | tail -n 1 | cut -d ' ' -f 4)
             restoreramdisk_ivkey="$iv$key"
         fi
-        "$oscheck"/img4 -i work/"$(Linux/PlistBuddy work/BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" -o work/ramdisk.dmg -k "$restoreramdisk_ivkey"
+        "$(uname)"/img4 -i work/"$(Linux/PlistBuddy work/BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" -o work/ramdisk.dmg -k "$restoreramdisk_ivkey"
     else
-        "$oscheck"/img4 -i work/"$(Linux/PlistBuddy work/BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" -o work/ramdisk.dmg
+        "$(uname)"/img4 -i work/"$(Linux/PlistBuddy work/BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" -o work/ramdisk.dmg
     fi
 fi
 
-if [ "$oscheck" = 'Darwin' ]; then
+if [ "$(uname)" = 'Darwin' ]; then
     if [ "$major" -eq 16 ] && [ "$minor" -ge 1 ] || [ "$major" -gt 16 ]; then
     :
     elif [ "$major" -eq 11 ] && [ "$minor" -lt 3 ] || [ "$major" -eq 10 ] || [ "$major" -eq 9 ]; then
@@ -792,18 +1070,18 @@ if [ "$oscheck" = 'Darwin' ]; then
     fi
     
     if [ "$replace" = 'j42dap' ]; then
-        "$oscheck"/gtar -x --no-overwrite-dir -f sshtars/atvssh.tar.gz -C /tmp/SSHRD/
+        "$(uname)"/gtar -x --no-overwrite-dir -f sshtars/atvssh.tar.gz -C /tmp/SSHRD/
     elif [ "$check" = '0x8012' ]; then
-        "$oscheck"/gtar -x --no-overwrite-dir -f sshtars/t2ssh.tar.gz -C /tmp/SSHRD/
-        echo_warn "[!] WARNING: T2 MIGHT HANG AND DO NOTHING WHEN BOOTING THE RAMDISK!"
+        "$(uname)"/gtar -x --no-overwrite-dir -f sshtars/t2ssh.tar.gz -C /tmp/SSHRD/
+        echo_warn "[WARNING] T2 MIGHT HANG AND DO NOTHING WHEN BOOTING THE RAMDISK!"
     else
         if [ "$major" -lt 12 ]; then
             mkdir 12rd
-            ipswurl12=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$oscheck"/jq '.firmwares | .[] | select(.version=="'12.0'")' | "$oscheck"/jq -s '.[0] | .url' --raw-output)
+            ipswurl12=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$(uname)"/jq '.firmwares | .[] | select(.version=="'12.0'")' | "$(uname)"/jq -s '.[0] | .url' --raw-output)
             cd 12rd
-            ../"$oscheck"/pzb -g BuildManifest.plist "$ipswurl12"
-            ../"$oscheck"/pzb -g "$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" "$ipswurl12"
-            ../"$oscheck"/img4 -i "$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" -o ramdisk.dmg
+            ../"$(uname)"/pzb -g BuildManifest.plist "$ipswurl12"
+            ../"$(uname)"/pzb -g "$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" "$ipswurl12"
+            ../"$(uname)"/img4 -i "$(/usr/bin/plutil -extract "BuildIdentities".0."Manifest"."RestoreRamDisk"."Info"."Path" xml1 -o - BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | head -1)" -o ramdisk.dmg
             hdiutil attach -mountpoint /tmp/12rd ramdisk.dmg -owners off
             cp /tmp/12rd/usr/lib/libiconv.2.dylib /tmp/12rd/usr/lib/libcharset.1.dylib /tmp/SSHRD/usr/lib/
             hdiutil detach -force /tmp/12rd
@@ -813,10 +1091,10 @@ if [ "$oscheck" = 'Darwin' ]; then
         :
         fi
         if [ "$major" -eq 7 ] || [ "$major" -eq 8 ]; then
-            "$oscheck"/gtar -x --no-overwrite-dir -f sshtars/iram.tar.gz -C /tmp/SSHRD/
+            "$(uname)"/gtar -x --no-overwrite-dir -f sshtars/iram.tar.gz -C /tmp/SSHRD/
             touch sshramdisk/device_port_44
         else
-            "$oscheck"/gtar -x --no-overwrite-dir -f sshtars/ssh.tar.gz -C /tmp/SSHRD/
+            "$(uname)"/gtar -x --no-overwrite-dir -f sshtars/ssh.tar.gz -C /tmp/SSHRD/
         fi
         tar -xvf other/sbplist.tar -C /tmp/SSHRD/
     fi
@@ -828,57 +1106,58 @@ if [ "$oscheck" = 'Darwin' ]; then
     fi
 else
     if [ "$major" -eq 16 ] && [ "$minor" -ge 1 ] || [ "$major" -gt 16 ]; then
-        echo_error "[-] ERROR: Creating 16.1+ ramdisk is only supported on macOS, this is due to ramdisks switching to APFS over HFS+, and another dmg library has to be used"
+        echo_error "[ERROR] Creating 16.1+ ramdisk is only supported on macOS, this is due to ramdisks switching to APFS over HFS+, and another dmg library has to be used"
         exit
     elif [ "$major" -eq 11 ] && [ "$minor" -lt 3 ] || [ "$major" -eq 10 ] || [ "$major" -eq 9 ]; then
-        "$oscheck"/hfsplus work/ramdisk.dmg grow 110000000 > /dev/null
+        "$(uname)"/hfsplus work/ramdisk.dmg grow 110000000
     elif [ "$major" -eq 7 ] || [ "$major" -eq 8 ]; then
-        "$oscheck"/hfsplus work/ramdisk.dmg grow 50000000 > /dev/null
+        "$(uname)"/hfsplus work/ramdisk.dmg grow 50000000
     else
-        "$oscheck"/hfsplus work/ramdisk.dmg grow 210000000 > /dev/null
+        "$(uname)"/hfsplus work/ramdisk.dmg grow 210000000
     fi
 
     if [ "$replace" = 'j42dap' ]; then
-        "$oscheck"/hfsplus work/ramdisk.dmg untar sshtars/atvssh.tar > /dev/null
+        "$(uname)"/hfsplus work/ramdisk.dmg untar sshtars/atvssh.tar
     elif [ "$check" = '0x8012' ]; then
-        "$oscheck"/hfsplus work/ramdisk.dmg untar sshtars/t2ssh.tar > /dev/null
-        echo_warn "[!] WARNING: T2 MIGHT HANG AND DO NOTHING WHEN BOOTING THE RAMDISK!"
+        "$(uname)"/hfsplus work/ramdisk.dmg untar sshtars/t2ssh.tar
+        echo_warn "[WARNING] T2 MIGHT HANG AND DO NOTHING WHEN BOOTING THE RAMDISK!"
     else
         if [ "$major" -lt 12 ]; then
             mkdir 12rd
-            ipswurl12=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$oscheck"/jq '.firmwares | .[] | select(.version=="'12.0'")' | "$oscheck"/jq -s '.[0] | .url' --raw-output)
+            ipswurl12=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$(uname)"/jq '.firmwares | .[] | select(.version=="'12.0'")' | "$(uname)"/jq -s '.[0] | .url' --raw-output)
             cd 12rd
-            ../"$oscheck"/pzb -g BuildManifest.plist "$ipswurl12"
-            ../"$oscheck"/pzb -g "$(../Linux/PlistBuddy BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" "$ipswurl12"
-            ../"$oscheck"/img4 -i "$(../Linux/PlistBuddy BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" -o ramdisk.dmg
-            ../"$oscheck"/hfsplus ramdisk.dmg extract usr/lib/libcharset.1.dylib libcharset.1.dylib
-            ../"$oscheck"/hfsplus ramdisk.dmg extract usr/lib/libiconv.2.dylib libiconv.2.dylib
-            ../"$oscheck"/hfsplus ../work/ramdisk.dmg add libiconv.2.dylib usr/lib/libiconv.2.dylib
-            ../"$oscheck"/hfsplus ../work/ramdisk.dmg add libcharset.1.dylib usr/lib/libcharset.1.dylib
+            ../"$(uname)"/pzb -g BuildManifest.plist "$ipswurl12"
+            ../"$(uname)"/pzb -g "$(../Linux/PlistBuddy BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" "$ipswurl12"
+            ../"$(uname)"/img4 -i "$(../Linux/PlistBuddy BuildManifest.plist -c "Print BuildIdentities:0:Manifest:RestoreRamDisk:Info:Path" | sed 's/"//g')" -o ramdisk.dmg
+            ../"$(uname)"/hfsplus ramdisk.dmg extract usr/lib/libcharset.1.dylib libcharset.1.dylib
+            ../"$(uname)"/hfsplus ramdisk.dmg extract usr/lib/libiconv.2.dylib libiconv.2.dylib
+            ../"$(uname)"/hfsplus ../work/ramdisk.dmg add libiconv.2.dylib usr/lib/libiconv.2.dylib
+            ../"$(uname)"/hfsplus ../work/ramdisk.dmg add libcharset.1.dylib usr/lib/libcharset.1.dylib
             cd ..
             rm -rf 12rd
         else
         :
         fi
         if [ "$major" -eq 7 ] || [ "$major" -eq 8 ]; then
-            "$oscheck"/hfsplus work/ramdisk.dmg untar sshtars/iram.tar > /dev/null
+            "$(uname)"/hfsplus work/ramdisk.dmg untar sshtars/iram.tar
             touch sshramdisk/device_port_44
         else
-            "$oscheck"/hfsplus work/ramdisk.dmg untar sshtars/ssh.tar > /dev/null
+            "$(uname)"/hfsplus work/ramdisk.dmg untar sshtars/ssh.tar
         fi
-        "$oscheck"/hfsplus work/ramdisk.dmg untar other/sbplist.tar > /dev/null
+        "$(uname)"/hfsplus work/ramdisk.dmg untar other/sbplist.tar
     fi
 fi
-if [ "$oscheck" = 'Darwin' ]; then
+if [ "$(uname)" = 'Darwin' ]; then
     if [ "$major" -eq 16 ] && [ "$minor" -ge 1 ] || [ "$major" -gt 16 ]; then
-        "$oscheck"/img4 -i work/ramdisk1.dmg -o sshramdisk/ramdisk.img4 -M work/IM4M -A -T rdsk
+        "$(uname)"/img4 -i work/ramdisk1.dmg -o sshramdisk/ramdisk.img4 -M work/IM4M -A -T rdsk
     else
-        "$oscheck"/img4 -i work/ramdisk.dmg -o sshramdisk/ramdisk.img4 -M work/IM4M -A -T rdsk
+        "$(uname)"/img4 -i work/ramdisk.dmg -o sshramdisk/ramdisk.img4 -M work/IM4M -A -T rdsk
     fi
 else
-    "$oscheck"/img4 -i work/ramdisk.dmg -o sshramdisk/ramdisk.img4 -M work/IM4M -A -T rdsk
+    "$(uname)"/img4 -i work/ramdisk.dmg -o sshramdisk/ramdisk.img4 -M work/IM4M -A -T rdsk
 fi
-"$oscheck"/img4 -i other/bootlogo.im4p -o sshramdisk/logo.img4 -M work/IM4M -A -T rlgo
+"$(uname)"/img4 -i other/bootlogo.im4p -o sshramdisk/logo.img4 -M work/IM4M -A -T rlgo
 rm -rf work 12rd
 echo_text "[*] Finished! Please use ./sshrd.sh boot to boot your device"
 echo $1 > sshramdisk/version.txt
+touch sshramdisk/"$replace"
