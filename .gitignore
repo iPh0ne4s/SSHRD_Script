@@ -1,9 +1,9 @@
 .DS_Store
-work
-sshramdisk
-activation_records
+*/.DS_Store
+*/*/.DS_Store
+work/
+sshramdisk/
 sshtars/*.tar
-12rd
-*.gz
-*.shsh2
-*.plist
+12rd/
+userdata/
+tmp/

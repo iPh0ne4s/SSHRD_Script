@@ -43,4 +43,7 @@ cd into SSHRD_Script directory. Run `chmod +x sshrd.sh` if running the script fo
 - Devices downgraded with turdus merula might not be able to mount /mnt2
 - iOS 15 ramdisk will crash when saving activation files for unknown reason, use 14.6 ramdisk instead
 - iOS 7-9 ramdisk is unusable except early iOS 8 versions, and iOS 8 ramdisk is only for exiting black screen recovery mode caused by a higher version ramdisk on A7 iOS 7 devices
-- iOS 16+ ramdisk is partially broken. On iOS 16 iPhone 8/Plus, mounting /mnt2 succeeds on freshly restored/reset devices but fails on most passcode locked devices, on iPhone X /mnt2 cannot be mounted at all, iPads untested. There is no ETA to fix the issue, it probably requires cracking paid ramdisk tools to figure out how to properly mount iOS 16+ filesystems
+- iOS 16+ ramdisk is partially broken
+  - iBoot64Patcher fails at patching iBSS/iBEC on iPads
+  - Mounting /mnt2 will possibly fail
+  - 16.1+ ramdisk.img4 cannot be created on Linux (requires `hdiutil`)
