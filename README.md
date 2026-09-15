@@ -2,7 +2,7 @@
 - An unofficial, enhanced version of [Nathan verygenericname's SSHRD_Script](https://github.com/verygenericname/SSHRD_Script)
 - This script has been tested working on Ubuntu 24.04 and macOS Sonoma hackintosh. However there are no warranties especially for ARM macOS, please use at your own risk
 - Linux or macOS required. Virtual machine and windows are not and will never be supported even if some features are available on them. It is recommended to use USB-A cable and Intel PC
-- A7-A11 devices only. For 32-bit devices, use [Legacy iOS Kit](https://github.com/LukeZGD/Legacy-iOS-Kit)
+- arm64 (A7-A11) devices only. For 32-bit devices, use [Legacy iOS Kit](https://github.com/LukeZGD/Legacy-iOS-Kit)
 ## Basic Usage: create ramdisk, boot ramdisk, SSH into device
 0. Clone this repository:   
 `git clone https://github.com/iPh0ne4s/SSHRD_Script --recursive`   
@@ -11,8 +11,7 @@ cd into SSHRD_Script directory. Run `chmod +x sshrd.sh` if running the script fo
   - For iOS 7-9 devices, run `./sshrd.sh 10.0.1`
     - A7 iOS 7 devices will be stuck in a black screen recovery mode after loading a higher version ramdisk, boot 8.0 ramdisk to fix this. It is the only case that iOS 8 ramdisk should be used
   - For iOS 10+ devices, use device version as ramdisk version, e.g., run `./sshrd.sh 11.2.2` for iOS 11.2.2 iPhone 6s, or the closest one if target ipsw doesn't exist, e.g., `./sshrd.sh 11.1` for iOS 11.0.1 iPhone X
-    - Use 14.6 ramdisk on iOS 15 devices if iOS 15 ramdisk crashes
-    - A wrong ramdisk version might cause bootloop, and this always happens on 16.4+ devices, check device version first
+  - A wrong ramdisk version might cause bootloop, and this almost always happens when booting 16.3.1- ramdisk on 16.4+ devices
   - It is common to see "an error occurred" or device rebooting, just repeat the process, re-enter DFU if necessary
 2. Run `./sshrd.sh boot` to boot ramdisk, if unable to connect to device, unplug and replug the cable
 3. Run `./sshrd.sh ssh` to SSH into device, if the terminal says "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!", run `rm -f ~/.ssh/known_hosts` and try again
@@ -41,9 +40,7 @@ cd into SSHRD_Script directory. Run `chmod +x sshrd.sh` if running the script fo
 - If there are permission denied, terminated or operation not permitted errors with sshrd.sh, try running sshrd.sh with sudo, especially on macOS
 - Even if mounting /mnt2 as read/write, some files like photos still won't be downloadable, that's due to userdata encryption and there's actually nothing wrong
 - Devices downgraded with turdus merula might not be able to mount /mnt2
-- iOS 15 ramdisk will crash when saving activation files for unknown reason, use 14.6 ramdisk instead
 - iOS 7-9 ramdisk is unusable except early iOS 8 versions, and iOS 8 ramdisk is only for exiting black screen recovery mode caused by a higher version ramdisk on A7 iOS 7 devices
 - iOS 16+ ramdisk is partially broken
-  - iBoot64Patcher fails at patching iBSS/iBEC on iPads
-  - Mounting /mnt2 will possibly fail
+  - iBoot64Patcher fails at patching iBSS/iBEC on some iPads. Temporary workaround: use pre-made 16.4 iBSS.img4 and iBEC.img4 on A9(X) 16.x iPads (extracted from paid ramdisk tools, while idk how they were made), and 17.0 ramdisk on 18.x iPad 7 (should be able to mount filesystems)
   - 16.1+ ramdisk.img4 cannot be created on Linux (requires `hdiutil`)

@@ -126,7 +126,7 @@ elif [ "$1" = 'ssh' ]; then
     echo_code "10.3 and above: /usr/bin/mount_filesystems"
     echo_code "10.0-10.2.1: mount_hfs /dev/disk0s1s1 /mnt1 && /usr/libexec/seputil --load /mnt1/usr/standalone/firmware/sep-firmware.img4 && mount_hfs /dev/disk0s1s2 /mnt2"
     echo_code "7.0-9.3.5: mount_hfs /dev/disk0s1s1 /mnt1 && mount_hfs /dev/disk0s1s2 /mnt2"
-    echo_text "Rename system snapshot (when first time modifying /mnt1 on 11.3+):"
+    echo_text "Rename system snapshot (when first time modifying /mnt1 on 11.3-14.8.1):"
     echo_code '/usr/bin/snaputil -n "$(/usr/bin/snaputil -l /mnt1)" orig-fs /mnt1'
     echo_text "Erase device without updating (9.0+):"
     echo_code "/usr/sbin/nvram oblit-inprogress=5"
@@ -163,12 +163,20 @@ elif [ "$1" = '--backup-activation' ]; then
         sleep .1
     fi
     "$(uname)"/"$(uname -m)"/iproxy 2222 22 > /dev/null 2>&1 &
-    serial_number=$("$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if ! "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -e /mnt2/tmp"; then
+        "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
+    fi
+    ramdisk_version=$("$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/sw_vers -productVersion")
+    ramdisk_major=${ramdisk_version%%.*}
+    if [ "$ramdisk_major" -ge 15 ]; then
+        serial_number=$("$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/mnt1/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    else
+        serial_number=$("$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    fi
     if [ -s userdata/activation_records/$serial_number/*_record.plist ] || [ -s userdata/activation_records/$serial_number/com.apple.commcenter.device_specific_nobackup.plist ] || [ -s userdata/activation_records/$serial_number/IC-Info.sisv ]; then
         echo_warn "Activation files exist, proceeding will overwrite previous files"; pause
     fi
     mkdir -p userdata/activation_records/$serial_number
-    "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
     if "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/containers/Data/System/*/Library/activation_records/*_record.plist"; then
         "$(uname)"/"$(uname -m)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no "root@127.0.0.1:/mnt2/containers/Data/System/*/Library/activation_records/*_record.plist" userdata/activation_records/$serial_number > /dev/null 2>&1 || true    # Generally activation_record.plist, sometimes pod_record.plist
     else
@@ -225,7 +233,16 @@ elif [ "$1" = '--restore-activation' ]; then
         sleep .1
     fi
     "$(uname)"/"$(uname -m)"/iproxy 2222 22 > /dev/null 2>&1 &
-    serial_number=$("$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    if ! "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -e /mnt2/tmp"; then
+        "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
+    fi
+    ramdisk_version=$("$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/sw_vers -productVersion")
+    ramdisk_major=${ramdisk_version%%.*}
+    if [ "$ramdisk_major" -ge 15 ]; then
+        serial_number=$("$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/mnt1/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    else
+        serial_number=$("$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/ioreg -l | grep IOPlatformSerialNumber | sed 's/.*IOPlatformSerialNumber\" = \"\(.*\)\"/\1/' | cut -d '\"' -f4")
+    fi
     if [ ! -e userdata/activation_records/$serial_number ]; then
         echo_error "Activation files not found"
         killall iproxy > /dev/null 2>&1 || true
@@ -234,7 +251,6 @@ elif [ "$1" = '--restore-activation' ]; then
         fi
         exit
     fi
-    "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
     if [ ! -s userdata/activation_records/$serial_number/*_record.plist ]; then
         echo_error "activation_record.plist not found"
     else
@@ -257,7 +273,10 @@ elif [ "$1" = '--restore-activation' ]; then
     else
         "$(uname)"/"$(uname -m)"/sshpass -p alpine scp -p -P2222 -o StrictHostKeyChecking=no userdata/activation_records/$serial_number/IC-Info.sisv root@127.0.0.1:/mnt2/tmp
         "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mkdir -p /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
-        "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"
+        "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes || true"
+        if "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -f /mnt2/tmp/IC-Info.sisv"; then
+            "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "mv -vf /mnt2/tmp/IC-Info.sisv /mnt2/mobile/Media/Downloads; mv -vf /mnt2/mobile/Media/Downloads/IC-Info.sisv /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes"    # For iOS 17+
+        fi
         "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "chmod 664 /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
         "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/sbin/chown mobile:mobile /mnt2/mobile/Library/FairPlay/iTunes_Control/iTunes/IC-Info.sisv"
     fi
@@ -833,7 +852,9 @@ elif [ "$1" = '--install-trollstore' ]; then
         sleep .1
     fi
     "$(uname)"/"$(uname -m)"/iproxy 2222 22 > /dev/null 2>&1 &
-    "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
+    if ! "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "test -e /mnt2/tmp"; then
+        "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/mount_filesystems || true"
+    fi
     "$(uname)"/"$(uname -m)"/sshpass -p alpine ssh root@127.0.0.1 -p2222 -o StrictHostKeyChecking=no "/usr/bin/trollstoreinstaller Tips"
     killall iproxy > /dev/null 2>&1 || true
     if [ "$(uname)" = 'Linux' ]; then
@@ -844,8 +865,8 @@ elif [ "$1" = '--exit-recovery' ]; then
     check=$("$(uname)"/"$(uname -m)"/irecovery -q | grep CPID | sed 's/CPID: //')
     replace=$("$(uname)"/"$(uname -m)"/irecovery -q | grep MODEL | sed 's/MODEL: //')
     deviceid=$("$(uname)"/"$(uname -m)"/irecovery -q | grep PRODUCT | sed 's/PRODUCT: //')
-    device_serial=$("$(uname)"/"$(uname -m)"/irecovery -q | grep SRNM | sed 's/SRNM: //')
-    echo_text "CPID: "$check"    MODEL: "$replace"    PRODUCT: "$deviceid"    SN: "$device_serial""
+    ecid=$(printf "%d" "$("$(uname)"/"$(uname -m)"/irecovery -q | grep ECID | sed 's/ECID: //')")
+    echo_text "CPID: "$check"   MODEL: "$replace"   PRODUCT: "$deviceid"   ECID: "$ecid""
     "$(uname)"/"$(uname -m)"/irecovery -n
     exit
 elif [ "$1" = 'reset' ]; then
@@ -886,7 +907,8 @@ fi
 check=$("$(uname)"/"$(uname -m)"/irecovery -q | grep CPID | sed 's/CPID: //')
 replace=$("$(uname)"/"$(uname -m)"/irecovery -q | grep MODEL | sed 's/MODEL: //')
 deviceid=$("$(uname)"/"$(uname -m)"/irecovery -q | grep PRODUCT | sed 's/PRODUCT: //')
-echo_text "CPID: "$check"    MODEL: "$replace"    PRODUCT: "$deviceid""
+ecid=$(printf "%d" "$("$(uname)"/"$(uname -m)"/irecovery -q | grep ECID | sed 's/ECID: //')")
+echo_text "CPID: "$check"   MODEL: "$replace"   PRODUCT: "$deviceid"   ECID: "$ecid""
 
 if [ "$1" = 'boot' ]; then
     if [ ! -e sshramdisk/iBSS.img4 ] || [ ! -e sshramdisk/iBEC.img4 ] || [ ! -e sshramdisk/kernelcache.img4 ] || [ ! -e sshramdisk/devicetree.img4 ] || [ ! -e sshramdisk/ramdisk.img4 ] || [ ! -e sshramdisk/version.txt ]; then
@@ -902,11 +924,6 @@ if [ "$1" = 'boot' ]; then
     major=${major:-0}
     minor=${minor:-0}
     echo_text "Ramdisk Version: "$(cat sshramdisk/version.txt)""
-    
-    # iOS 15 ramdisk crashes when running `/usr/sbin/ioreg -l | grep IOPlatformSerialNumber` for unknown reason, which is used to get SN on ramdisk mode
-    if [ "$major" -eq 15 ]; then
-        echo_warn "iOS 15 ramdisk detected, if it crashes at saving/restoring activation files, use 14.6 ramdisk instead"; pause
-    fi
     
     if [ "$check" = '0x8960' ] && [ "$(uname)" = 'Linux' ]; then
         device_pwnd="$("$(uname)"/"$(uname -m)"/irecovery -q | grep "PWND" | cut -c 7-)"
@@ -939,10 +956,12 @@ if [ "$1" = 'boot' ]; then
     while ! ("$(uname)"/"$(uname -m)"/irecovery -q | grep 'MODE: Recovery' > /dev/null 2>&1); do
         sleep 1
     done
-    echo_text "irecovery -f logo.img4"
-    "$(uname)"/"$(uname -m)"/irecovery -f sshramdisk/logo.img4
-    echo_text "irecovery -c 'setpicture 0x1'"
-    "$(uname)"/"$(uname -m)"/irecovery -c "setpicture 0x1"
+    if [ -s sshramdisk/logo.img4 ]; then
+        echo_text "irecovery -f logo.img4"
+        "$(uname)"/"$(uname -m)"/irecovery -f sshramdisk/logo.img4
+        echo_text "irecovery -c 'setpicture 0x1'"
+        "$(uname)"/"$(uname -m)"/irecovery -c "setpicture 0x1"
+    fi
     echo_text "irecovery -f ramdisk.img4"
     "$(uname)"/"$(uname -m)"/irecovery -f sshramdisk/ramdisk.img4
     echo_text "irecovery -c ramdisk"
@@ -972,10 +991,22 @@ if [ "$1" = 'boot' ]; then
     exit
 fi
 
-ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$(uname)"/"$(uname -m)"/jq '.firmwares | .[] | select(.version=="'$1'")' | "$(uname)"/"$(uname -m)"/jq -s '.[0] | .url' --raw-output)
+if ([ "$deviceid" = 'iPad7,11' ] || [ "$deviceid" = 'iPad7,12' ]) && [ "$major" -ge 18 ]; then
+    echo_warn "Unable to patch 18.x iBSS and iBEC with current iBoot64Patcher, will create 17.0 ramdisk"; pause
+    ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$(uname)"/"$(uname -m)"/jq '.firmwares | .[] | select(.version=="'17.0'")' | "$(uname)"/"$(uname -m)"/jq -s '.[0] | .url' --raw-output)
+elif ([ "$deviceid" = 'iPad6,3' ] || [ "$deviceid" = 'iPad6,4' ] || [ "$deviceid" = 'iPad6,7' ] || [ "$deviceid" = 'iPad6,8' ] || [ "$deviceid" = 'iPad6,11' ] || [ "$deviceid" = 'iPad6,12' ]) && [ "$major" -eq 16 ]; then
+    echo_warn "Unable to patch A9(X) 16.x iBSS and iBEC with current iBoot64Patcher, will create 16.4 ramdisk with pre-made iBSS.img4 and iBEC.img4"; pause
+    ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$(uname)"/"$(uname -m)"/jq '.firmwares | .[] | select(.version=="'16.4'")' | "$(uname)"/"$(uname -m)"/jq -s '.[0] | .url' --raw-output)
+else
+    ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$(uname)"/"$(uname -m)"/jq '.firmwares | .[] | select(.version=="'$1'")' | "$(uname)"/"$(uname -m)"/jq -s '.[0] | .url' --raw-output)
+fi
 
 if [ "$check" = '0x8960' ] && [ "$(uname)" = 'Linux' ]; then
-    echo_warn "Linux and A7 device detected, please use ipwnder_lite to enter pwnDFU mode first, otherwise boot process will likely fail"; pause
+    if [ -z "$("$(uname)"/"$(uname -m)"/irecovery -q | grep "PWND" | cut -c 7-)" ]; then
+        echo_warn "Linux and A7 device detected, please use ipwnder_lite to enter pwnDFU mode first, otherwise boot process will likely fail"; pause
+    else
+    :
+    fi
 else
     "$(uname)"/"$(uname -m)"/gaster pwn
 fi
@@ -1025,10 +1056,7 @@ ibss_ivkey="$(sed -n "s/^"${replace}"_"${version}"_iBSS=\"\([^\"]*\)\"$/\1/p" ot
 kernelcache_ivkey="$(sed -n "s/^"${replace}"_"${version}"_Kernelcache=\"\([^\"]*\)\"$/\1/p" other/ivkey)"
 restoreramdisk_ivkey="$(sed -n "s/^"${replace}"_"${version}"_RestoreRamdisk=\"\([^\"]*\)\"$/\1/p" other/ivkey)"
 
-if [ "$major" -ge 18 ]; then    # iBSS and iBEC have been unencrypted since iOS 18
-    "$(uname)"/"$(uname -m)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBSS.dec
-    "$(uname)"/"$(uname -m)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBEC.dec
-elif [ "$check" = '0x8960' ]; then
+if [ "$check" = '0x8960' ]; then
     "$(uname)"/"$(uname -m)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBSS[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBSS.dec -k "$ibss_ivkey"
     "$(uname)"/"$(uname -m)"/img4 -i work/"$(awk "/""${replace}""/{x=1}x&&/iBEC[.]/{print;exit}" work/BuildManifest.plist | grep '<string>' |cut -d\> -f2 |cut -d\< -f1 | sed 's/Firmware[/]dfu[/]//')" -o work/iBEC.dec -k "$ibec_ivkey"
 else
@@ -1040,6 +1068,9 @@ if ([ "$major" -eq 10 ] && [ "$minor" -lt 3 ] || [ "$major" -lt 10 ]) || ([ "$ma
     "$(uname)"/"$(uname -m)"/img4 -i work/iBSS.patched -o sshramdisk/iBSS.img4 -M work/IM4M -A -T ibss
     "$(uname)"/"$(uname -m)"/kairos work/iBEC.dec work/iBEC.patched -b "rd=md0 debug=0x2014e -v wdt=-1 `if [ -z "$2" ]; then :; else echo "$2=$3"; fi` `if [ "$check" = '0x8960' ] || [ "$check" = '0x7000' ] || [ "$check" = '0x7001' ]; then echo "nand-enable-reformat=1 -restore"; fi` `if [ "$major" -lt 10 ]; then echo "amfi=0xff cs_enforcement_disable=1"; fi`" -n
     "$(uname)"/"$(uname -m)"/img4 -i work/iBEC.patched -o sshramdisk/iBEC.img4 -M work/IM4M -A -T ibec
+elif ([ "$deviceid" = 'iPad6,3' ] || [ "$deviceid" = 'iPad6,4' ] || [ "$deviceid" = 'iPad6,7' ] || [ "$deviceid" = 'iPad6,8' ] || [ "$deviceid" = 'iPad6,11' ] || [ "$deviceid" = 'iPad6,12' ]) && [ "$major" -eq 16 ]; then
+    cp -v other/16.4/"$replace"_16.4_iBSS.img4 sshramdisk/iBSS.img4
+    cp -v other/16.4/"$replace"_16.4_iBEC.img4 sshramdisk/iBEC.img4
 else
     "$(uname)"/"$(uname -m)"/iBoot64Patcher work/iBSS.dec work/iBSS.patched
     "$(uname)"/"$(uname -m)"/img4 -i work/iBSS.patched -o sshramdisk/iBSS.img4 -M work/IM4M -A -T ibss
