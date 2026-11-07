@@ -1,9 +1,7 @@
 .DS_Store
 */.DS_Store
 */*/.DS_Store
-work/
-sshramdisk/
-sshtars/*.tar
-12rd/
-userdata/
-tmp/
+*/*/*/.DS_Store
+resources/sshtars/*.tar
+saved
+tmp

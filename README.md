@@ -1,46 +1,54 @@
 # SSHRD_Script
-- An unofficial, enhanced version of [Nathan verygenericname's SSHRD_Script](https://github.com/verygenericname/SSHRD_Script)
+- A 64-bit SSH ramdisk script based on [Nathan's SSHRD_Script](https://github.com/verygenericname/SSHRD_Script)
 - This script has been tested working on Ubuntu 24.04 and macOS Sonoma hackintosh. However there are no warranties especially for ARM macOS, please use at your own risk
 - Linux or macOS required. Virtual machine and windows are not and will never be supported even if some features are available on them. It is recommended to use USB-A cable and Intel PC
-- arm64 (A7-A11) devices only. For 32-bit devices, use [Legacy iOS Kit](https://github.com/LukeZGD/Legacy-iOS-Kit)
-## Basic Usage: create ramdisk, boot ramdisk, SSH into device
-0. Clone this repository:   
-`git clone https://github.com/iPh0ne4s/SSHRD_Script --recursive`   
-cd into SSHRD_Script directory. Run `chmod +x sshrd.sh` if running the script for the first time
-1. Enter DFU mode, run `./sshrd.sh <ramdisk version>` to create ramdisk
-  - For iOS 7-9 devices, run `./sshrd.sh 10.0.1`
-    - A7 iOS 7 devices will be stuck in a black screen recovery mode after loading a higher version ramdisk, boot 8.0 ramdisk to fix this. It is the only case that iOS 8 ramdisk should be used
-  - For iOS 10+ devices, use device version as ramdisk version, e.g., run `./sshrd.sh 11.2.2` for iOS 11.2.2 iPhone 6s, or the closest one if target ipsw doesn't exist, e.g., `./sshrd.sh 11.1` for iOS 11.0.1 iPhone X
+- arm64 (A7-A11) devices only. For 32-bit devices, use [Legacy iOS Kit](https://github.com/LukeZGD/Legacy-iOS-Kit). For A12-A13 devices, use [ICH_A12_plus_Ramdisk](https://github.com/Pa7r0n/ICH_A12_plus_Ramdisk)
+## Usage
+- Git clone this repository: `git clone https://github.com/iPh0ne4s/SSHRD_Script --recursive`
+  - Or download the script by clicking "Code - Download ZIP"
+- cd into SSHRD_Script directory, run `sudo ./sshrd.sh`
+  - Run `chmod +x sshrd.sh` if running the script for the first time
+- Unlike Legacy iOS Kit, SSHRD_Script does not recognize normal mode devices, supported modes are DFU, recovery, ramdisk
+- To create ramdisk, connect a device in DFU mode. **Make sure to select a correct ramdisk version**
+  - For iOS 10+ devices, use device version as ramdisk version, e.g., create 11.2.2 ramdisk for iOS 11.2.2 iPhone 6s, or the closest one if target ipsw doesn't exist, e.g., create 11.1 ramdisk for iOS 11.0.1 iPhone X
+  - For iOS 7-9 devices, use 10.0.1 as ramdisk version
+    - A7 iOS 7 devices will be stuck in a black screen recovery mode after loading a higher version ramdisk, boot 8.0 ramdisk to fix this
+    - DO NOT use iOS 8 ramdisk in any other cases. iOS 7 and 9 ramdisk created by SSHRD_Script are broken and unusable, do not use them either. If you do need these versions, try [QwQramdisk](https://github.com/j1ans/QwQramdisk)
   - A wrong ramdisk version might cause bootloop, and this almost always happens when booting 16.3.1- ramdisk on 16.4+ devices
   - It is common to see "an error occurred" or device rebooting, just repeat the process, re-enter DFU if necessary
-2. Run `./sshrd.sh boot` to boot ramdisk, if unable to connect to device, unplug and replug the cable
-3. Run `./sshrd.sh ssh` to SSH into device, if the terminal says "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!", run `rm -f ~/.ssh/known_hosts` and try again
-  - GUI tools such as [FileZilla](https://filezilla-project.org/) can be used to access device
-## Other Commands
-### In this part, unless otherwise specified, all the commands should be executed after booting ramdisk, i.e., after creating ramdisk and running `./sshrd.sh boot`, before `./sshrd.sh ssh`
-- Reboot device: `./sshrd.sh reboot`
-- Erase device without updating on iOS 9+: `./sshrd.sh reset`
-- Dump onboard blobs: `./sshrd.sh dump-blobs`
-- Remove temporary files: `./sshrd.sh clean` (run this one when no device)
-- Exit recovery mode: `./sshrd.sh --exit-recovery` (run this one in recovery mode)
-- Backup and restore activation files (iOS 10+)
-  - Run `./sshrd.sh --backup-activation` to backup activation files, `./sshrd.sh --restore-activation` to restore them
+- Boot ramdisk and go to SSH ramdisk menu
+  - If the terminal says "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!", select "Fix SSH Connection" and try again
+  - "kex_exchange_identification: read: Connection reset by peer" and "Connection reset by 127.0.0.1 port 2222" indicate an SSH connection issue, if this occurs, try the following solutions: unplug and replug device, change cable, re-enter ramdisk mode, reboot PC
+  - You may run `sudo ./sshrd.sh` at any time to re-enter SSH ramdisk menu when a ramdisk mode device is connected
+  - After selecting "SSH Into Device", GUI tools such as [FileZilla](https://filezilla-project.org/) can be used to access device
+- Ramdisk files and userdata (activation records, SHSH blobs, etc.) are stored in `saved` folder
+## Features
+- SSHRD_Script supports all arm64 (A7-A11) devices, fully supports iOS 10+ and partially supports iOS 7-9
+  - This is due to not being able to mount /mnt2 as read/write on iOS 7-9
+- Dump onboard blobs (iOS 15 and below)
+  - iOS 16 and above contain cryptex1 ticket, onboard blobs dumped through ramdisk are incomplete. Install [x8A4](https://github.com/Cryptiiiic/x8A4) and dump blobs in normal mode
+- Backup and restore activation files
 - Backup and restore activation files (iOS 7-9, requires open menu)
-  - Commands are `./sshrd.sh --backup-activation-hfs` and `./sshrd.sh --restore-activation-hfs`
   - On 7.0-9.3.5, activation files cannot be downloaded using scp or sftp command, instead they can be moved to /private/var/mobile/Media (the directory that is accessible in normal mode without a jailbreak) to become downloadable, therefore passcode locked devices are not supported
-  - On 8.3+, activation files can be restored in the same way, place them in /private/var/mobile/Media first. On 7.0-8.2, however, moving them back will cause bootloop
-- Backup and restore the entire contents on NAND (dangerous, might cause bootloop)
-  - Run `./sshrd.sh --dump-nand` to backup NAND to a .gz file, `./sshrd.sh --restore-nand` to restore the .gz file to /dev/disk0 on device. Do not mount any partition before running these commands
-  - On 7.0-10.2.1, there are also a few more options: `./sshrd.sh --dump-disk0s1s1`, `./sshrd.sh --restore-disk0s1s1`, `./sshrd.sh --dump-disk0s1s2`, `./sshrd.sh --restore-disk0s1s2`
-- Install TrollStore on 14.0-16.6.1, 16.7 RC, 17.0: `./sshrd.sh --install-trollstore`
-- Un-disable and get unlimited passcode attempts on iOS 7-8: `./sshrd.sh --brute-force`
+- Un-disable and get unlimited passcode attempts (iOS 7-8)
+  - You will still need to brute force manually. For 64-bit iOS 7-8 automated methods, see [Brute](https://github.com/j1ans/Brute)
+- Erase device without updating
+  - iOS 7 and 8 require rebooting to lock screen and entering a wrong passcode
+- Install TrollStore (14.0-16.6.1, 16.7 RC, 17.0)
+- Disk utilities (dangerous, might cause bootloop)
+  - Backup and restore the entire contents on NAND (/dev/disk0)
+  - Backup and restore system partition (/dev/disk0s1s1) and data partition (/dev/disk0s1s2) on 7.0-10.2.1
+- Miscellaneous utilities
+  - Remove Setup.app (up to 13.2.3 or 12.4.4)
+  - Disable OTA/reset
+  - Disable com.apple.thermalmonitord
+  - Remove iCloud account (not FMI off)
+  - Skip all Setup.app steps
+  - Update device date & time
+  - Clear NVRAM
 ## Notes & Known Issues
-- "kex_exchange_identification: read: Connection reset by peer" and "Connection reset by 127.0.0.1 port 2222" indicate an SSH connection issue, if this occurs, try the following solutions: unplug and replug device, change cable, re-enter ramdisk mode, reboot PC
 - On Linux, A7 devices must be manually placed into pwnDFU using [ipwnder_lite](https://github.com/LukeZGD/ipwnder_lite). [Usage](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/Pwning-Using-Another-iOS-Device)
-- If there are permission denied, terminated or operation not permitted errors with sshrd.sh, try running sshrd.sh with sudo, especially on macOS
-- Even if mounting /mnt2 as read/write, some files like photos still won't be downloadable, that's due to userdata encryption and there's actually nothing wrong
+- Even if mounting /mnt2 as read/write, most files like photos still won't be downloadable, that's due to userdata encryption and there's actually nothing wrong
 - Devices downgraded with turdus merula might not be able to mount /mnt2
-- iOS 7-9 ramdisk is unusable except early iOS 8 versions, and iOS 8 ramdisk is only for exiting black screen recovery mode caused by a higher version ramdisk on A7 iOS 7 devices
-- iOS 16+ ramdisk is partially broken
-  - iBoot64Patcher fails at patching iBSS/iBEC on some iPads. Temporary workaround: use pre-made 16.4 iBSS.img4 and iBEC.img4 on A9(X) 16.x iPads (extracted from paid ramdisk tools, while idk how they were made), and 17.0 ramdisk on 18.x iPad 7 (should be able to mount filesystems)
-  - 16.1+ ramdisk.img4 cannot be created on Linux (requires `hdiutil`)
+- iOS 7-9 ramdisk are unusable except early iOS 8 versions, and iOS 8 ramdisk is only for exiting black screen recovery mode caused by a higher version ramdisk on A7 iOS 7 devices
+- iOS 16+ ramdisk is partially broken, iBoot64Patcher fails at patching iBSS/iBEC on some iPads. Workaround: use pre-made 16.4 iBSS.img4 and iBEC.img4 on A9(X) 16.x iPads (extracted from paid ramdisk tools, while idk how they were made), and 17.0 ramdisk on 18.x iPad 7 (should be able to mount filesystems)
